@@ -10,16 +10,17 @@
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
 <style>body{font-family:Inter,sans-serif;background:#f3eee6;color:#3b2a20}.serif{font-family:'Playfair Display',serif}[x-cloak]{display:none!important}.sp{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spn .7s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spn{to{transform:rotate(360deg)}}</style>
 </head>
-<body x-data="admin()" x-init="init()" x-cloak>
+<body x-data="admin()" x-cloak>
 
-<div x-show="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-[#3b2a20] text-white px-5 py-2.5 rounded-full shadow-lg text-sm" x-text="toast"></div>
+<div x-show="toast" class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-[#3b2a20] text-white px-5 py-2.5 rounded-full shadow-lg text-sm pointer-events-none" x-text="toast"></div>
 
 <!-- LOGIN -->
 <div x-show="!token" class="min-h-screen flex items-center justify-center p-4">
-  <div class="bg-white rounded-3xl shadow-lg p-8 w-full max-w-xs text-center">
+  <div class="relative z-[200] bg-white rounded-3xl shadow-lg p-8 w-full max-w-xs text-center">
     <h1 class="serif text-2xl text-[#b4491f] mb-1">Dapur Kinara</h1><p class="text-sm text-stone-500 mb-5">Masuk Admin</p>
-    <input type="password" x-model="pin" @keyup.enter="login()" placeholder="PIN" class="w-full border rounded-xl py-3 text-center text-xl tracking-widest mb-3">
-    <button @click="login()" :disabled="busy.login" class="w-full bg-[#3b2a20] text-white py-3 rounded-xl font-semibold disabled:opacity-60"><span x-show="busy.login" class="sp"></span>Masuk</button>
+    <input type="password" x-model="pin" @keydown.enter="login()" autocomplete="current-password" placeholder="PIN" class="w-full border rounded-xl py-3 text-center text-xl tracking-widest mb-3">
+    <p x-show="loginErr" x-text="loginErr" class="text-xs text-red-600 mb-3"></p>
+    <button type="button" @click="login()" :disabled="busy.login" class="w-full bg-[#3b2a20] text-white py-3 rounded-xl font-semibold disabled:opacity-60 cursor-pointer"><span x-show="busy.login" class="sp"></span>Masuk</button>
     <a href="index.html" class="block text-xs text-stone-400 mt-4">← ke halaman pembeli</a>
   </div>
 </div>
@@ -29,7 +30,7 @@
   <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
     <h1 class="serif text-xl text-orange-300">Kinara Admin</h1>
     <nav class="flex gap-1 text-sm items-center">
-      <template x-for="t in [['antrean','Antrean'],['riwayat','Riwayat'],['menu','Menu']]"><button @click="tab=t[0]" :class="tab==t[0]?'bg-white text-[#3b2a20]':'text-stone-300'" class="px-3 py-1.5 rounded-full" x-text="t[1]+(t[0]=='antrean'?' ('+aktif.length+')':'')"></button></template>
+      <template x-for="t in [['antrean','Antrean'],['riwayat','Riwayat'],['tarik','Saldo'],['menu','Menu']]" :key="t[0]"><button @click="tab=t[0]" :class="tab==t[0]?'bg-white text-[#3b2a20]':'text-stone-300'" class="px-3 py-1.5 rounded-full" x-text="t[1]+(t[0]=='antrean'?' ('+aktif.length+')':t[0]=='tarik'&&penarikan.length?' ('+penarikan.length+')':'')"></button></template>
       <button @click="toggleSuara()" class="ml-1 text-lg" :title="suara?'Suara aktif':'Suara mati'" x-text="suara?'🔔':'🔕'"></button><button @click="logout()" class="ml-1 text-xs text-red-300">Keluar</button>
     </nav>
   </div>
@@ -53,6 +54,8 @@
           <div class="flex justify-between text-sm"><span x-text="o.metode+' · '+o.lunas"></span><b x-text="rp(o.total)"></b></div>
           <p x-show="o.saldo>0" class="text-xs text-blue-700" x-text="'Saldo dipakai '+rp(o.saldo)+' → tagih '+rp(o.total-o.saldo)"></p>
           <a x-show="o.bukti" :href="o.bukti" target="_blank" class="text-xs text-blue-600 underline mt-1">Lihat bukti transfer</a>
+          <p x-show="o.status=='Refund Diminta'" class="text-xs bg-purple-50 text-purple-800 rounded-lg p-2 mt-2 break-words" x-text="'Refund '+rp(o.total-o.saldo)+' → '+(o.tujuan||'tujuan belum diisi, chat WA pelanggan')"></p>
+          <button x-show="o.metode=='Bayar Nanti' && o.lunas!='Lunas' && o.status!='Refund Diminta'" @click="lunas(o)" :disabled="rowBusy(o.id)" class="mt-2 text-xs bg-amber-100 text-amber-800 border border-amber-300 rounded-lg py-1.5 font-medium"><span x-show="busy[o.id+'|l']" class="sp"></span><span x-text="o.lunas=='Menunggu Verifikasi'?'✔ Bukti bayar masuk · Verifikasi & Lunas':'Tandai Lunas (sudah bayar)'"></span></button>
           <p class="text-center text-xs font-semibold mt-3" x-text="o.status"></p>
           <div class="mt-2 flex gap-2">
             <template x-if="o.status=='Refund Diminta'"><button @click="refundOpen(o)" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-sm font-medium">Proses Refund</button></template>
@@ -80,10 +83,26 @@
         <td class="p-3"><b x-text="r.id"></b> <span class="text-xs text-stone-400" x-text="r.waktu"></span><div class="text-xs" x-text="r.nama+' · '+r.pesanan.replace(/\n/g,', ')"></div></td>
         <td class="p-3" x-text="rp(r.total)"></td>
         <td class="p-3"><span x-show="r.lunas=='Lunas'" class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Lunas</span>
-          <button x-show="r.lunas!='Lunas' && r.status=='Selesai'" @click="lunas(r)" :disabled="busy[r.id+'|l']" class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full disabled:opacity-60"><span x-show="busy[r.id+'|l']" class="sp"></span>Belum lunas · tandai</button></td>
+          <button x-show="r.lunas!='Lunas' && r.status=='Selesai'" @click="lunas(r)" :disabled="busy[r.id+'|l']" class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full disabled:opacity-60"><span x-show="busy[r.id+'|l']" class="sp"></span><span x-text="r.lunas=='Menunggu Verifikasi'?'Verifikasi bukti · Lunas':'Belum lunas · tandai'"></span></button>
+          <a x-show="r.lunas=='Menunggu Verifikasi' && r.bukti" :href="r.bukti" target="_blank" class="block text-xs text-blue-600 underline mt-1">Lihat bukti</a></td>
         <td class="p-3 text-xs"><span x-text="r.status"></span><a x-show="r.refund" :href="r.refund" target="_blank" class="block text-blue-600 underline">Bukti refund</a></td>
       </tr></template>
     </table></div>
+  </section>
+
+  <!-- PENARIKAN SALDO -->
+  <section x-show="tab=='tarik'">
+    <h2 class="serif text-2xl mb-3">Penarikan Saldo Pelanggan</h2>
+    <p x-show="!penarikan.length" class="text-center text-stone-400 py-12">Tidak ada permintaan penarikan.</p>
+    <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3"><template x-for="t in penarikan" :key="t.id">
+      <div class="relative bg-white rounded-2xl border-t-4 border-purple-500 p-4 shadow-sm">
+        <div x-show="rowBusy(t.id)" class="absolute inset-0 bg-white/70 rounded-2xl flex items-center justify-center z-10 text-[#b4491f]"><span class="sp" style="width:28px;height:28px;border-width:3px;margin:0"></span></div>
+        <div class="flex justify-between"><b x-text="t.nama||t.hp"></b><span class="text-xs font-mono bg-stone-100 px-2 py-1 rounded" x-text="t.id"></span></div>
+        <p class="text-xs text-stone-400" x-text="t.waktu+' · '+t.hp"></p>
+        <p class="text-2xl font-bold text-[#b4491f] my-2" x-text="rp(t.nominal)"></p>
+        <p class="text-sm bg-purple-50 text-purple-900 rounded-lg p-2 break-words" x-text="'Transfer ke: '+t.tujuan"></p>
+        <button @click="tarikOpen(t)" class="mt-3 w-full bg-blue-600 text-white py-2 rounded-xl text-sm font-medium">Sudah ditransfer · upload bukti</button>
+      </div></template></div>
   </section>
 
   <!-- MENU -->
@@ -100,17 +119,18 @@
 </main>
 </div>
 
-<!-- MODAL UMUM -->
-<div x-show="m.type" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="m.type=null">
+<!-- MODAL UMUM (pointer-events-none saat tertutup agar tidak pernah menghalangi klik) -->
+<div x-show="m.type" :class="m.type?'':'pointer-events-none'" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="m.type=null">
   <div class="bg-white rounded-2xl p-5 w-full max-w-sm">
     <h3 class="font-bold text-lg mb-3" x-text="m.title"></h3>
     <template x-if="m.type=='tolak'"><div><textarea x-model="m.alasan" rows="2" placeholder="Alasan (mis. menu habis)" class="w-full border rounded-xl p-2 text-sm"></textarea>
-      <p x-show="m.o.metode=='Transfer'||m.o.metode=='QRIS'" class="text-xs text-stone-500 mt-2">Dana transfer akan masuk daftar Refund.</p></div></template>
+      <div x-show="m.o.metode=='Transfer'||m.o.metode=='QRIS'" class="mt-2 text-sm space-y-1"><label class="flex gap-2"><input type="radio" value="Refund" x-model="m.opsi"> Kembalikan uang (Refund)</label><label class="flex gap-2"><input type="radio" value="Saldo" x-model="m.opsi"> Jadikan saldo pelanggan</label></div></div></template>
     <template x-if="m.type=='selesai'"><div><p class="text-2xl font-bold text-[#b4491f]" x-text="rp(m.o.total-m.o.saldo)"></p>
       <label class="text-xs">Uang diterima</label><input type="number" x-model.number="m.nominal" class="w-full border rounded-xl p-2 mb-1">
       <p class="text-sm" x-text="'Kembalian: '+rp(Math.max(0,m.nominal-(m.o.total-m.o.saldo)))"></p>
       <label class="flex items-center gap-2 text-sm mt-2"><input type="checkbox" x-model="m.lunas"> Sudah dibayar (Lunas)</label></div></template>
     <template x-if="m.type=='refund'"><div><p class="text-sm mb-2" x-text="'Transfer balik ke '+m.o.nama+' ('+m.o.hp+')'"></p><input type="file" accept="image/*" @change="foto($event,'m')" class="text-xs w-full"></div></template>
+    <template x-if="m.type=='tarik'"><div><p class="text-sm" x-text="'Transfer '+rp(m.o.nominal)+' ke:'"></p><p class="font-semibold text-sm my-2 break-words" x-text="m.o.tujuan"></p><input type="file" accept="image/*" @change="foto($event,'m')" class="text-xs w-full"></div></template>
     <template x-if="m.type=='edit'"><div><textarea x-model="m.pesanan" rows="4" class="w-full border rounded-xl p-2 text-sm"></textarea><label class="text-xs">Total (Rp)</label><input type="number" x-model.number="m.total" class="w-full border rounded-xl p-2"></div></template>
     <template x-if="m.type=='produk'"><div class="space-y-2">
       <input x-model="m.nama" placeholder="Nama menu" class="w-full border rounded-xl p-2"><input type="number" x-model.number="m.harga" placeholder="Harga" class="w-full border rounded-xl p-2">
@@ -123,9 +143,15 @@
 
 <script>
 const API='https://script.google.com/macros/s/AKfycbyVKyIODSNyBukhI_GsqSObOeBe1m1a4AvMcaRM0Bv96KvYImAoccT0pdJF6q9PYW-P/exec'; // ganti dgn URL deploy V7
+// penyimpanan aman (tidak error bila storage diblokir browser)
+const store={
+  get(s,k){try{return window[s].getItem(k)}catch(e){return null}},
+  set(s,k,v){try{window[s].setItem(k,v)}catch(e){}},
+  del(s,k){try{window[s].removeItem(k)}catch(e){}}
+};
 function admin(){return{
- tab:'antrean',token:sessionStorage.kt||'',pin:'',aktif:[],riwayat:[],produk:[],toast:'',m:{type:null},busy:{},
- ctx:null,audioOK:false,suara:localStorage.suara!='off',ringT:null,pollT:null,
+ tab:'antrean',token:store.get('sessionStorage','kt')||'',pin:'',loginErr:'',aktif:[],riwayat:[],produk:[],penarikan:[],toast:'',m:{type:null},busy:{},
+ ctx:null,audioOK:false,suara:store.get('localStorage','suara')!='off',ringT:null,pollT:null,loading:false,
  nextLabel:{'Menunggu Konfirmasi':'Terima & Proses','Diproses':'Packing','Packing':'Siap'},
  rp:n=>'Rp '+Number(n||0).toLocaleString('id-ID'),
  warna:s=>({'Menunggu Konfirmasi':'border-red-500','Diproses':'border-amber-500','Packing':'border-blue-500','Siap':'border-green-500','Refund Diminta':'border-purple-500'}[s]),
@@ -139,13 +165,13 @@ function admin(){return{
  initAudio(){try{
    if(!this.ctx){this.ctx=new(window.AudioContext||window.webkitAudioContext)();
      const o=this.ctx.createOscillator(),g=this.ctx.createGain();g.gain.value=0.00001;o.connect(g);g.connect(this.ctx.destination);o.start()} // nada senyap: cegah tab di-throttle saat di background
-   if(this.ctx.state!='running')this.ctx.resume().then(()=>this.audioOK=this.ctx.state=='running');
+   if(this.ctx.state!='running')this.ctx.resume().then(()=>this.audioOK=this.ctx.state=='running').catch(()=>{});
    this.audioOK=this.ctx.state=='running'}catch(e){}},
  bell(){if(!this.suara||!this.ctx||this.ctx.state!='running')return;
    [[880,0],[1319,.2],[880,.4],[1319,.6]].forEach(([f,t])=>{const o=this.ctx.createOscillator(),g=this.ctx.createGain(),s=this.ctx.currentTime+t;
      o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(.6,s+.02);g.gain.exponentialRampToValueAtTime(.001,s+.35);
      o.connect(g);g.connect(this.ctx.destination);o.start(s);o.stop(s+.4)})},
- toggleSuara(){this.suara=!this.suara;localStorage.suara=this.suara?'on':'off';this.initAudio();if(this.suara)this.bell()},
+ toggleSuara(){this.suara=!this.suara;store.set('localStorage','suara',this.suara?'on':'off');this.initAudio();if(this.suara)this.bell()},
  cekRing(baru){ // berdering tiap 6 detik selama masih ada pesanan 'Menunggu Konfirmasi'
    if(baru>0){if(!this.ringT){this.bell();this.ringT=setInterval(()=>this.bell(),6000)}}
    else if(this.ringT){clearInterval(this.ringT);this.ringT=null}},
@@ -155,18 +181,33 @@ function admin(){return{
    const mob=/Android|iPhone|iPad/i.test(navigator.userAgent);
    const w=window.open(mob?`https://wa.me/${n}?text=${t}`:`https://web.whatsapp.com/send?phone=${n}&text=${t}`,'wa_kinara');if(w)w.focus()},
 
- // ---- API ----
- async api(b){try{const r=await fetch(API,{method:'POST',body:JSON.stringify({token:this.token,...b})}).then(r=>r.json());
-   if(r.code=='AUTH'){this.logout();this.note(r.message)}return r}catch(e){return{status:'error',message:'Koneksi gagal'}}},
- init(){document.addEventListener('click',()=>this.initAudio());if(this.token)this.mulai()},
+ // ---- API (dengan timeout 25 dtk agar tombol tidak macet selamanya) ----
+ async api(b){const c=new AbortController(),tm=setTimeout(()=>c.abort(),25000);
+   try{const res=await fetch(API,{method:'POST',body:JSON.stringify({token:this.token,...b}),signal:c.signal});
+     const r=await res.json();
+     if(r.code=='AUTH'){this.logout();this.note(r.message)}return r}
+   catch(e){return{status:'error',message:e.name=='AbortError'?'Server tidak merespons (timeout)':'Koneksi gagal / server belum di-deploy ulang (V7)'}}
+   finally{clearTimeout(tm)}},
+ init(){document.addEventListener('click',()=>this.initAudio());if(this.token)this.mulai()}, // dipanggil otomatis oleh Alpine
  mulai(){if(this.pollT)return;this.load();this.pollT=setInterval(()=>{if(this.token)this.load()},5000)},
- async login(){this.initAudio();this.busy.login=true;const r=await this.api({action:'login',pin:this.pin});delete this.busy.login;
-   if(r.status!='success')return this.note(r.message);this.token=r.token;sessionStorage.kt=r.token;this.pin='';this.mulai()},
- logout(){this.token='';sessionStorage.removeItem('kt');clearInterval(this.pollT);this.pollT=null;this.cekRing(0)},
- async load(){const r=await this.api({action:'adminData'});if(r.status!='success')return;
-   const baru=r.aktif.filter(o=>o.status=='Menunggu Konfirmasi').length;
-   this.cekRing(baru);document.title=(baru?'('+baru+') ':'')+'Admin – Dapur Kinara';
-   this.aktif=r.aktif;this.riwayat=r.riwayat;this.produk=r.produk},
+ async login(){
+   if(this.busy.login)return;
+   this.loginErr='';
+   if(!this.pin){this.loginErr='Masukkan PIN dulu';return}
+   this.initAudio();this.busy.login=true;
+   try{
+     const r=await this.api({action:'login',pin:this.pin});
+     if(r.status!='success'){this.loginErr=r.message||'Login gagal';return}
+     this.token=r.token;store.set('sessionStorage','kt',r.token);this.pin='';this.mulai()
+   }catch(e){this.loginErr='Terjadi kesalahan: '+e.message}
+   finally{delete this.busy.login}},
+ logout(){this.token='';store.del('sessionStorage','kt');clearInterval(this.pollT);this.pollT=null;this.cekRing(0)},
+ async load(){if(this.loading)return;this.loading=true;
+   try{const r=await this.api({action:'adminData'});if(r.status!='success')return;
+     const baru=r.aktif.filter(o=>o.status=='Menunggu Konfirmasi').length;
+     this.cekRing(baru);document.title=(baru?'('+baru+') ':'')+'Admin – Dapur Kinara';
+     this.aktif=r.aktif;this.riwayat=r.riwayat;this.produk=r.produk;this.penarikan=r.penarikan||[]}
+   finally{this.loading=false}},
 
  // ---- Aksi: spinner tampil sampai server selesai & data dimuat ulang, baru status berubah ----
  async aksi(key,b,ok){this.busy[key]=true;
@@ -175,18 +216,20 @@ function admin(){return{
    finally{delete this.busy[key]}},
  maju(o){this.aksi(o.id+'|m',{action:'setStatus',id:o.id},'Status diperbarui')},
  lunas(r){this.aksi(r.id+'|l',{action:'tandaiLunas',id:r.id},'Ditandai lunas')},
- tolakOpen(o){this.m={type:'tolak',title:'Tolak / batalkan '+o.id,o,alasan:'Menu habis'}},
+ tolakOpen(o){this.m={type:'tolak',title:'Tolak / batalkan '+o.id,o,alasan:'Menu habis',opsi:'Refund'}},
  selesaiOpen(o){this.m={type:'selesai',title:'Selesaikan '+o.id,o,nominal:o.total-o.saldo,lunas:o.metode!='Bayar Nanti'}},
  refundOpen(o){this.m={type:'refund',title:'Refund '+o.id,o,base64:null}},
  editOpen(o){this.m={type:'edit',title:'Edit '+o.id,o,pesanan:o.pesanan,total:o.total}},
  produkOpen(p){this.m={type:'produk',title:p?'Edit menu':'Tambah menu',o:p,id:p?p.id:null,nama:p?p.nama:'',harga:p?p.harga:'',kategori:p?p.kategori:'Makanan',base64:null}},
+ tarikOpen(t){this.m={type:'tarik',title:'Proses penarikan',o:t,base64:null}},
  hapus(p){this.m={type:'hapus',title:'Hapus menu',o:p}},
  foto(ev,key){const f=ev.target.files[0];if(!f)return;const img=new Image();img.onload=()=>{const s=Math.min(1,900/Math.max(img.width,img.height)),c=document.createElement('canvas');
    c.width=img.width*s;c.height=img.height*s;c.getContext('2d').drawImage(img,0,0,c.width,c.height);this[key].base64=c.toDataURL('image/jpeg',.75).split(',')[1];this[key].name=f.name.replace(/\.\w+$/,'')+'.jpg'};img.src=URL.createObjectURL(f)},
  submit(){const m=this.m,o=m.o;
-  if(m.type=='tolak')return this.aksi(o.id+'|x',{action:'tolak',id:o.id,alasan:m.alasan,opsi:'Refund'},'Pesanan ditolak');
+  if(m.type=='tolak')return this.aksi(o.id+'|x',{action:'tolak',id:o.id,alasan:m.alasan,opsi:m.opsi},'Pesanan ditolak');
   if(m.type=='selesai')return this.aksi(o.id+'|x',{action:'selesai',id:o.id,nominal:m.nominal,lunas:m.lunas},'Pesanan selesai');
   if(m.type=='refund')return this.aksi(o.id+'|x',{action:'refund',id:o.id,buktiBase64:m.base64,buktiMime:'image/jpeg',buktiName:m.name},'Refund dicatat');
+  if(m.type=='tarik')return this.aksi(o.id+'|x',{action:'prosesTarik',id:o.id,buktiBase64:m.base64,buktiMime:'image/jpeg',buktiName:m.name},'Penarikan dicatat');
   if(m.type=='edit')return this.aksi(o.id+'|x',{action:'editPesanan',id:o.id,pesanan:m.pesanan,total:m.total},'Pesanan diperbarui');
   if(m.type=='hapus')return this.aksi(o.id+'|h',{action:'hapusProduk',id:o.id},'Menu dihapus');
   if(m.type=='produk')return this.aksi('prod',{action:m.id?'editProduk':'simpanProduk',id:m.id,nama:m.nama,harga:m.harga,kategori:m.kategori,base64File:m.base64,mimeType:'image/jpeg',fileName:m.name||'menu.jpg'},'Menu tersimpan')}

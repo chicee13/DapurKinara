@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Dapur Kinara – Ayam Goreng</title>
+<link rel="icon" type="image/png" href="img/dapurkinara.png">
 <script src="https://cdn.tailwindcss.com"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
@@ -15,7 +16,7 @@
 
 <header class="sticky top-0 z-40 bg-[#faf6f0]/90 backdrop-blur border-b border-[#e8dccb]">
   <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
-    <h1 class="serif text-2xl text-[#b4491f]">Dapur Kinara</h1>
+    <a href="./" class="flex items-center gap-2"><img src="img/dapurkinara.png" alt="Logo Dapur Kinara" class="h-10 w-auto object-contain" onerror="this.style.display='none'"><h1 class="serif text-2xl text-[#b4491f]">Dapur Kinara</h1></a>
     <nav class="flex items-center gap-1 text-sm font-medium">
       <button @click="tab='menu'" :class="tab=='menu'?'bg-[#3b2a20] text-white':'text-[#3b2a20]'" class="px-4 py-1.5 rounded-full">Menu</button>
       <button @click="tab='order';loadOrders()" :class="tab=='order'?'bg-[#3b2a20] text-white':'text-[#3b2a20]'" class="px-4 py-1.5 rounded-full">Pesanan Saya</button>
@@ -27,7 +28,7 @@
 <main class="max-w-5xl mx-auto px-4 pb-32">
   <!-- MENU -->
   <section x-show="tab=='menu'">
-    <div class="py-8 text-center"><p class="serif text-3xl">Ayam goreng yang bikin kangen</p><p class="text-stone-500 text-sm mt-1">Pesan sekarang, kami siapkan hangat-hangat.</p></div>
+    <div class="py-8 text-center"><img src="img/dapurkinara.png" alt="" class="h-24 w-auto mx-auto mb-3 object-contain" onerror="this.style.display='none'"><p class="serif text-3xl">Ayam goreng yang bikin kangen</p><p class="text-stone-500 text-sm mt-1">Pesan sekarang, kami siapkan hangat-hangat.</p></div>
     <div class="flex gap-2 overflow-x-auto pb-3">
       <template x-for="k in kategori" :key="k"><button @click="kat=k" :class="kat==k?'bg-[#b4491f] text-white border-[#b4491f]':'bg-white border-[#e8dccb]'" class="px-4 py-1.5 rounded-full border text-sm whitespace-nowrap" x-text="k"></button></template>
     </div>
@@ -59,12 +60,16 @@
       <p class="text-sm text-stone-500 mb-2">Cari pesanan (ID + No. WhatsApp)</p>
       <div class="flex gap-2"><input x-model="cari.id" placeholder="K261115-001" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm uppercase"><input x-model="cari.hp" placeholder="08…" inputmode="tel" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm"><button @click="cariManual()" :disabled="bCari" class="bg-[#3b2a20] text-white px-4 rounded-xl text-sm disabled:opacity-60"><span x-show="bCari" class="sp"></span>Cari</button></div>
     </div>
+    <div x-show="saldoSaya>0" class="bg-blue-50 border border-blue-200 rounded-2xl p-4 mb-4"><p class="text-sm text-blue-800">Saldo Anda</p><p class="serif text-2xl text-blue-900" x-text="rp(saldoSaya)"></p><p class="text-xs text-blue-700 mt-1">Dipakai otomatis di pesanan berikutnya (bisa dimatikan saat checkout).</p><button @click="tarik.show=true" class="mt-3 w-full border border-blue-300 text-blue-700 bg-white rounded-xl py-2 text-sm font-medium">Tarik jadi uang kembali</button></div>
     <p x-show="!orders.length" class="text-center text-stone-400 py-10">Belum ada pesanan.</p>
     <template x-for="o in orders" :key="o.id">
       <div class="bg-white border border-[#eee3d3] rounded-2xl p-4 mb-4 shadow-sm">
         <div class="flex justify-between text-sm"><b x-text="o.id"></b><span class="text-stone-400" x-text="o.waktu"></span></div>
         <p class="text-sm whitespace-pre-line mt-2 text-stone-600" x-text="o.pesanan"></p>
         <p class="font-semibold mt-2" x-text="rp(o.total)+' · '+o.metode"></p>
+        <div x-show="o.bayarNanti" class="mt-3 bg-amber-50 border border-amber-200 rounded-xl p-3"><p class="text-sm text-amber-800 font-medium">Belum dibayar · <span x-text="rp(o.sisa)"></span></p><p class="text-xs text-amber-700 mb-2">Bayar kapan saja via transfer/QRIS, lalu upload buktinya di sini.</p><input type="file" accept="image/*" @change="susulan(o,$event)" :disabled="bSus==o.id" class="text-xs w-full"><p x-show="bSus==o.id" class="text-xs text-amber-700 mt-1"><span class="sp"></span>Mengunggah…</p></div>
+        <p x-show="o.lunas=='Menunggu Verifikasi'" class="mt-2 text-xs bg-blue-50 text-blue-700 rounded-lg p-2 text-center">Bukti diterima, menunggu verifikasi admin</p>
+        <p x-show="o.lunas=='Lunas' && o.metode=='Bayar Nanti'" class="mt-2 text-xs bg-green-50 text-green-700 rounded-lg p-2 text-center">✓ Lunas</p>
         <!-- stepper -->
         <div x-show="langkah.includes(o.status)" class="flex items-center mt-4">
           <template x-for="(s,i) in langkah" :key="s"><div class="flex-1 flex flex-col items-center relative">
@@ -75,7 +80,7 @@
         </div>
         <p x-show="!langkah.includes(o.status)" class="mt-3 text-center text-sm font-semibold rounded-xl py-2" :class="o.status=='Selesai'?'bg-green-50 text-green-700':'bg-red-50 text-red-600'" x-text="o.status"></p>
         <p x-show="o.alasan && o.status.includes('Batal')" class="text-xs text-stone-500 mt-1" x-text="'Alasan: '+o.alasan"></p>
-        <p x-show="o.status=='Refund Diminta'" class="text-xs text-stone-500 mt-2">Admin akan mentransfer kembali dana Anda. Pantau via WhatsApp.</p>
+        <div x-show="o.status=='Refund Diminta'" class="mt-2"><p class="text-xs text-stone-500">Refund <b x-text="rp(o.transfer)"></b> sedang diproses admin<span x-show="o.tujuan" x-text="' ke '+o.tujuan"></span>.</p><button @click="keSaldo(o)" :disabled="bUbah" class="mt-2 w-full border border-blue-300 text-blue-700 rounded-xl py-2 text-sm"><span x-show="bUbah" class="sp"></span>Ganti jadi saldo</button></div>
         <button x-show="o.canCancel" @click="mintaBatal(o)" class="mt-4 w-full border border-red-300 text-red-600 rounded-xl py-2 text-sm font-medium">Batalkan Pesanan</button>
         <p x-show="['Packing','Siap'].includes(o.status)" class="mt-3 text-xs text-center text-stone-500">Pesanan sudah dipacking sehingga tidak dapat dibatalkan.</p>
       </div>
@@ -107,7 +112,7 @@
       <div class="flex justify-between items-center mb-3"><h3 class="serif text-xl">Checkout</h3><button @click="sheet='cart'" class="text-sm text-stone-500">‹ Kembali</button></div>
       <input x-model="f.nama" placeholder="Nama" class="w-full border rounded-xl px-3 py-2.5 mb-2 bg-white">
       <input x-model="f.hp" @blur="cekSaldo()" placeholder="No. WhatsApp (08…)" inputmode="tel" class="w-full border rounded-xl px-3 py-2.5 bg-white">
-      <p x-show="saldo>0" class="mt-2 text-sm bg-blue-50 text-blue-800 rounded-xl p-2.5">Saldo Anda <b x-text="rp(saldo)"></b> akan otomatis dipakai.</p>
+      <label x-show="saldo>0" class="mt-2 flex items-center gap-2 text-sm bg-blue-50 text-blue-800 rounded-xl p-2.5"><input type="checkbox" x-model="pakaiSaldo"> Pakai saldo Anda (<b x-text="rp(saldo)"></b>)</label>
       <p class="text-sm font-semibold mt-4 mb-2">Metode bayar</p>
       <div class="grid grid-cols-2 gap-2">
         <template x-for="m in metodeList" :key="m[0]"><button @click="f.metode=m[0]" :class="f.metode==m[0]?'border-[#b4491f] bg-orange-50':'bg-white'" class="border rounded-xl py-2.5 text-sm" x-text="m[1]"></button></template>
@@ -117,12 +122,15 @@
         <p x-show="f.bukti" class="text-xs text-green-600 mt-1">✓ Foto siap dikirim</p>
       </div>
       <div class="mt-4 text-sm space-y-1"><div class="flex justify-between"><span>Total</span><span x-text="rp(total)"></span></div>
-        <div x-show="saldo>0" class="flex justify-between text-blue-700"><span>Saldo dipakai</span><span x-text="'− '+rp(Math.min(saldo,total))"></span></div>
+        <div x-show="pakai>0" class="flex justify-between text-blue-700"><span>Saldo dipakai</span><span x-text="'− '+rp(pakai)"></span></div>
         <div class="flex justify-between font-semibold text-base"><span>Bayar</span><span x-text="rp(sisa)"></span></div></div>
       <button @click="kirim()" :disabled="busy" class="w-full mt-4 bg-[#b4491f] text-white py-3 rounded-xl font-semibold disabled:opacity-60"><span x-show="busy" class="sp"></span><span x-text="busy?'Memproses…':'Kirim Pesanan'"></span></button>
     </div></template>
   </div>
 </div>
+
+<!-- MODAL TARIK SALDO -->
+<div x-show="tarik.show" class="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4"><div class="bg-white rounded-2xl p-5 w-full max-w-sm" :class="bTarik&&'pointer-events-none opacity-70'"><h3 class="serif text-xl mb-1 text-center">Tarik saldo</h3><p class="text-sm text-stone-500 text-center mb-3" x-text="'Seluruh saldo '+rp(saldoSaya)+' akan dikembalikan.'"></p><input x-model="tarik.tujuan" placeholder="Bank / e-wallet, no. rekening, a.n." class="w-full border rounded-xl px-3 py-2.5 text-sm mb-3"><button @click="tarikSaldo()" class="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium"><span x-show="bTarik" class="sp"></span>Ajukan penarikan</button><button @click="tarik.show=false" class="w-full mt-2 py-2 text-sm text-stone-500">Batal</button></div></div>
 
 <!-- KONFIRMASI KOSONGKAN -->
 <div x-show="kosong" class="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4"><div class="bg-white rounded-2xl p-5 w-full max-w-sm text-center"><h3 class="serif text-xl mb-1">Kosongkan keranjang?</h3><p class="text-sm text-stone-500 mb-4">Semua menu di keranjang akan dihapus.</p><div class="flex gap-2"><button @click="kosong=false" class="flex-1 py-2.5 bg-stone-100 rounded-xl text-sm">Batal</button><button @click="cart=[];sheet=null;kosong=false;note('Keranjang dikosongkan')" class="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium">Ya, kosongkan</button></div></div></div>
@@ -133,6 +141,7 @@
     <h3 class="serif text-xl mb-2">Batalkan pesanan?</h3><p x-show="bBatal" class="text-sm text-stone-500 mb-2"><span class="sp"></span>Memproses pembatalan…</p>
     <template x-if="batal && batal.transfer>0"><div class="space-y-2">
       <p class="text-sm text-stone-500 mb-3">Dana <b x-text="rp(batal.transfer)"></b> sudah kami terima. Pilih:</p>
+      <input x-model="tujuan" placeholder="Rekening / e-wallet tujuan (untuk Refund)" class="w-full border rounded-xl px-3 py-2 text-sm">
       <button @click="konfirmBatal('Refund')" class="w-full py-2.5 rounded-xl bg-red-50 text-red-700 border border-red-200 text-sm font-medium">Kembalikan uang (Refund)</button>
       <button @click="konfirmBatal('Saldo')" class="w-full py-2.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-sm font-medium">Simpan sebagai saldo</button>
     </div></template>
@@ -145,7 +154,7 @@
 const API='https://script.google.com/macros/s/AKfycbyVKyIODSNyBukhI_GsqSObOeBe1m1a4AvMcaRM0Bv96KvYImAoccT0pdJF6q9PYW-P/exec'; // ganti dgn URL deploy V7
 const post=b=>fetch(API,{method:'POST',body:JSON.stringify(b)}).then(r=>r.json());
 function app(){return{
- tab:'menu',produk:[],kat:'Semua',loading:true,cart:[],sheet:null,busy:false,bBatal:false,bCari:false,kosong:false,toast:'',saldo:0,batal:null,orders:[],cari:{id:'',hp:''},
+ tab:'menu',produk:[],kat:'Semua',loading:true,cart:[],sheet:null,busy:false,bBatal:false,bCari:false,kosong:false,bTarik:false,bUbah:false,bSus:null,saldoSaya:0,pakaiSaldo:true,tujuan:'',tarik:{show:false,tujuan:''},toast:'',saldo:0,batal:null,orders:[],cari:{id:'',hp:''},
  langkah:['Menunggu Konfirmasi','Diproses','Packing','Siap','Selesai'],
  metodeList:[['Cash','💵 Tunai'],['Bayar Nanti','⏳ Bayar Nanti'],['Transfer','🏦 Transfer'],['QRIS','📱 QRIS']],
  f:{nama:localStorage.nama||'',hp:localStorage.hp||'',metode:'Cash',bukti:null},
@@ -154,7 +163,8 @@ function app(){return{
  get tampil(){return this.kat=='Semua'?this.produk:this.produk.filter(p=>p.kategori==this.kat)},
  get total(){return this.cart.reduce((s,i)=>s+i.harga*i.qty,0)},
  get jumlah(){return this.cart.reduce((s,i)=>s+i.qty,0)},
- get sisa(){return this.total-Math.min(this.saldo,this.total)},
+ get pakai(){return this.pakaiSaldo?Math.min(this.saldo,this.total):0},
+ get sisa(){return this.total-this.pakai},
  get perluBukti(){return this.sisa>0&&['Transfer','QRIS'].includes(this.f.metode)},
  qty(id){return(this.cart.find(i=>i.id==id)||{}).qty||0},
  add(p){const e=this.cart.find(i=>i.id==p.id);e?e.qty++:this.cart.push({...p,qty:1,catatan:''})},
@@ -173,7 +183,7 @@ function app(){return{
   if(!this.f.nama||this.f.hp.length<9)return this.note('Nama & No. WhatsApp wajib diisi');
   if(this.perluBukti&&!this.f.bukti)return this.note('Upload bukti pembayaran dulu');
   this.busy=true;
-  try{const r=await post({action:'checkout',nama:this.f.nama,hp:this.f.hp,metode:this.f.metode,buktiBase64:this.perluBukti?this.f.bukti:null,buktiMime:'image/jpeg',buktiName:'bukti.jpg',
+  try{const r=await post({action:'checkout',nama:this.f.nama,hp:this.f.hp,metode:this.f.metode,pakaiSaldo:this.pakaiSaldo,buktiBase64:this.perluBukti?this.f.bukti:null,buktiMime:'image/jpeg',buktiName:'bukti.jpg',
     items:this.cart.map(i=>({id:i.id,qty:i.qty,catatan:i.catatan}))});
    if(r.status!='success')throw new Error(r.message);
    localStorage.nama=this.f.nama;localStorage.hp=this.f.hp;this.simpan({id:r.orderId,hp:this.f.hp});
@@ -182,15 +192,25 @@ function app(){return{
   this.busy=false},
  simpan(o){const l=JSON.parse(localStorage.myOrders||'[]').filter(x=>x.id!=o.id);l.unshift(o);localStorage.myOrders=JSON.stringify(l.slice(0,15))},
  async loadOrders(){const l=JSON.parse(localStorage.myOrders||'[]');
-  const r=await Promise.all(l.map(o=>post({action:'lacak',id:o.id,hp:o.hp}).then(x=>x.data).catch(()=>null)));this.orders=r.filter(Boolean)},
+  const r=await Promise.all(l.map(o=>post({action:'lacak',id:o.id,hp:o.hp}).then(x=>x.data).catch(()=>null)));this.orders=r.filter(Boolean);const h=localStorage.hp;if(h)post({action:'cekSaldo',hp:h}).then(x=>this.saldoSaya=x.saldo||0).catch(()=>{})},
  async cariManual(){this.bCari=true;
   try{const r=await post({action:'lacak',id:this.cari.id,hp:this.cari.hp});
    if(!r.data)this.note('Pesanan tidak ditemukan');else{this.simpan({id:r.data.id,hp:this.cari.hp});await this.loadOrders()}}
   catch(e){this.note('Koneksi gagal')}
   this.bCari=false},
- mintaBatal(o){this.batal=o},
- async konfirmBatal(opsi){const o=this.batal;this.bBatal=true;
-  try{const r=await post({action:'batal',id:o.id,hp:JSON.parse(localStorage.myOrders||'[]').find(x=>x.id==o.id).hp,opsi});
+ hpOf(id){return(JSON.parse(localStorage.myOrders||'[]').find(x=>x.id==id)||{}).hp},
+ mintaBatal(o){this.tujuan='';this.batal=o},
+ async keSaldo(o){this.bUbah=true;try{const r=await post({action:'ubahKeSaldo',id:o.id,hp:this.hpOf(o.id)});this.note(r.status=='success'?'Dana disimpan sebagai saldo':r.message);await this.loadOrders()}catch(e){this.note('Koneksi gagal')}this.bUbah=false},
+ async tarikSaldo(){if(!this.tarik.tujuan.trim())return this.note('Isi rekening tujuan dulu');this.bTarik=true;
+  try{const r=await post({action:'tarikSaldo',hp:localStorage.hp,nama:localStorage.nama||'',tujuan:this.tarik.tujuan});
+   this.note(r.status=='success'?'Permintaan penarikan dikirim ke admin':r.message);if(r.status=='success'){this.tarik={show:false,tujuan:''};this.saldoSaya=0}}
+  catch(e){this.note('Koneksi gagal')}this.bTarik=false},
+ susulan(o,ev){const file=ev.target.files[0];if(!file)return;this.bSus=o.id;const img=new Image();img.onload=async()=>{
+  const s=Math.min(1,1000/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*s;c.height=img.height*s;c.getContext('2d').drawImage(img,0,0,c.width,c.height);
+  try{const r=await post({action:'bayarSusulan',id:o.id,hp:this.hpOf(o.id),buktiBase64:c.toDataURL('image/jpeg',.75).split(',')[1],buktiMime:'image/jpeg',buktiName:'bukti.jpg'});
+   this.note(r.status=='success'?'Bukti terkirim, menunggu verifikasi admin':r.message);await this.loadOrders()}catch(e){this.note('Koneksi gagal')}this.bSus=null};img.src=URL.createObjectURL(file)},
+ async konfirmBatal(opsi){if(opsi=='Refund'&&!this.tujuan.trim())return this.note('Isi rekening tujuan refund dulu');const o=this.batal;this.bBatal=true;
+  try{const r=await post({action:'batal',id:o.id,hp:JSON.parse(localStorage.myOrders||'[]').find(x=>x.id==o.id).hp,opsi,tujuan:this.tujuan});
    this.note(r.status=='success'?'Pesanan dibatalkan':r.message);await this.loadOrders()}
   catch(e){this.note('Koneksi gagal')}
   this.bBatal=false;this.batal=null}
