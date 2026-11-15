@@ -117,6 +117,20 @@
       <div class="grid grid-cols-2 gap-2">
         <template x-for="m in metodeList" :key="m[0]"><button @click="f.metode=m[0]" :class="f.metode==m[0]?'border-[#b4491f] bg-orange-50':'bg-white'" class="border rounded-xl py-2.5 text-sm" x-text="m[1]"></button></template>
       </div>
+      <div x-show="perluBukti && f.metode=='Transfer'" class="mt-3 bg-white border rounded-xl p-3">
+        <p class="text-sm font-semibold mb-2">Transfer ke salah satu rekening</p>
+        <template x-for="r in rekening" :key="r.bank"><div class="flex items-center justify-between border rounded-lg px-3 py-2 mb-2">
+          <div class="min-w-0"><p class="text-xs text-stone-500" x-text="r.bank+' · a.n. '+r.nama"></p><p class="font-mono font-semibold" x-text="r.no"></p></div>
+          <button @click="salin(r.no,'No. rekening '+r.bank+' disalin')" class="text-xs bg-[#3b2a20] text-white px-3 py-1.5 rounded-lg shrink-0">Salin</button></div></template>
+        <div class="flex items-center justify-between bg-orange-50 rounded-lg px-3 py-2"><div><p class="text-xs text-stone-500">Jumlah transfer</p><p class="font-semibold" x-text="rp(sisa)"></p></div>
+          <button @click="salin(sisa,'Nominal disalin')" class="text-xs bg-[#b4491f] text-white px-3 py-1.5 rounded-lg">Salin</button></div>
+      </div>
+      <div x-show="perluBukti && f.metode=='QRIS'" class="mt-3 bg-white border rounded-xl p-3 text-center">
+        <p class="text-sm font-semibold mb-2">Scan QRIS</p>
+        <img :src="qris" alt="QRIS Dapur Kinara" class="mx-auto max-h-64 rounded-lg border" onerror="this.style.display='none'">
+        <p class="text-sm mt-2">Masukkan nominal <b x-text="rp(sisa)"></b></p>
+        <a :href="qris" download="QRIS-Dapur-Kinara.png" class="mt-2 inline-block text-sm bg-[#3b2a20] text-white px-4 py-2 rounded-lg">⬇ Download QRIS</a>
+      </div>
       <div x-show="perluBukti" class="mt-3 bg-white border rounded-xl p-3">
         <p class="text-sm mb-2">Upload bukti pembayaran</p><input type="file" accept="image/*" @change="pilihBukti($event)" class="text-xs w-full">
         <p x-show="f.bukti" class="text-xs text-green-600 mt-1">✓ Foto siap dikirim</p>
@@ -152,9 +166,17 @@
 
 <script>
 const API='https://script.google.com/macros/s/AKfycbyVKyIODSNyBukhI_GsqSObOeBe1m1a4AvMcaRM0Bv96KvYImAoccT0pdJF6q9PYW-P/exec'; // ganti dgn URL deploy V7
+// ====== ISI DATA PEMBAYARAN DI SINI ======
+const REKENING=[
+ {bank:'BCA',no:'ISI_NOMOR_BCA',nama:'ISI_ATAS_NAMA'},
+ {bank:'BRI',no:'ISI_NOMOR_BRI',nama:'ISI_ATAS_NAMA'},
+ {bank:'BJB',no:'ISI_NOMOR_BJB',nama:'ISI_ATAS_NAMA'}
+];
+const QRIS_IMG='img/qris.png'; // simpan gambar QRIS di folder img/
+// =========================================
 const post=b=>fetch(API,{method:'POST',body:JSON.stringify(b)}).then(r=>r.json());
 function app(){return{
- tab:'menu',produk:[],kat:'Semua',loading:true,cart:[],sheet:null,busy:false,bBatal:false,bCari:false,kosong:false,bTarik:false,bUbah:false,bSus:null,saldoSaya:0,pakaiSaldo:true,tujuan:'',tarik:{show:false,tujuan:''},toast:'',saldo:0,batal:null,orders:[],cari:{id:'',hp:''},
+ tab:'menu',produk:[],kat:'Semua',loading:true,cart:[],sheet:null,rekening:REKENING,qris:QRIS_IMG,busy:false,bBatal:false,bCari:false,kosong:false,bTarik:false,bUbah:false,bSus:null,saldoSaya:0,pakaiSaldo:true,tujuan:'',tarik:{show:false,tujuan:''},toast:'',saldo:0,batal:null,orders:[],cari:{id:'',hp:''},
  langkah:['Menunggu Konfirmasi','Diproses','Packing','Siap','Selesai'],
  metodeList:[['Cash','💵 Tunai'],['Bayar Nanti','⏳ Bayar Nanti'],['Transfer','🏦 Transfer'],['QRIS','📱 QRIS']],
  f:{nama:localStorage.nama||'',hp:localStorage.hp||'',metode:'Cash',bukti:null},
@@ -169,6 +191,10 @@ function app(){return{
  qty(id){return(this.cart.find(i=>i.id==id)||{}).qty||0},
  add(p){const e=this.cart.find(i=>i.id==p.id);e?e.qty++:this.cart.push({...p,qty:1,catatan:''})},
  dec(p){const e=this.cart.find(i=>i.id==p.id);if(!e)return;if(--e.qty<=0)this.cart=this.cart.filter(i=>i!=e);if(!this.cart.length)this.sheet=null},
+ salin(t,msg){t=String(t);const ok=()=>this.note(msg);
+  if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t).then(ok).catch(()=>this.salinLama(t,ok));else this.salinLama(t,ok)},
+ salinLama(t,ok){const a=document.createElement('textarea');a.value=t;a.style.cssText='position:fixed;opacity:0';document.body.appendChild(a);a.select();
+  try{document.execCommand('copy');ok()}catch(e){this.note('Gagal menyalin')}a.remove()},
  note(m){this.toast=m;setTimeout(()=>this.toast='',3000)},
  async init(){
   try{this.produk=await fetch(API+'?action=getProduk').then(r=>r.json())}catch(e){this.note('Gagal memuat menu')}
