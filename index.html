@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Dapur Kinara – Ayam Goreng</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@600;700&display=swap" rel="stylesheet">
+<style>body{font-family:Inter,sans-serif;background:#faf6f0;color:#3b2a20}.serif{font-family:'Playfair Display',serif}[x-cloak]{display:none!important}.sp{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spn .7s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spn{to{transform:rotate(360deg)}}</style>
+</head>
+<body x-data="app()" x-init="init()" x-cloak>
+
+<div x-show="toast" x-transition class="fixed top-4 left-1/2 -translate-x-1/2 z-[100] bg-[#3b2a20] text-white px-5 py-2.5 rounded-full shadow-lg text-sm" x-text="toast"></div>
+
+<header class="sticky top-0 z-40 bg-[#faf6f0]/90 backdrop-blur border-b border-[#e8dccb]">
+  <div class="max-w-5xl mx-auto px-4 py-3 flex items-center justify-between">
+    <h1 class="serif text-2xl text-[#b4491f]">Dapur Kinara</h1>
+    <nav class="flex items-center gap-1 text-sm font-medium">
+      <button @click="tab='menu'" :class="tab=='menu'?'bg-[#3b2a20] text-white':'text-[#3b2a20]'" class="px-4 py-1.5 rounded-full">Menu</button>
+      <button @click="tab='order';loadOrders()" :class="tab=='order'?'bg-[#3b2a20] text-white':'text-[#3b2a20]'" class="px-4 py-1.5 rounded-full">Pesanan Saya</button>
+      <a href="admin.html" class="text-xs text-stone-400 ml-2">Admin</a>
+    </nav>
+  </div>
+</header>
+
+<main class="max-w-5xl mx-auto px-4 pb-32">
+  <!-- MENU -->
+  <section x-show="tab=='menu'">
+    <div class="py-8 text-center"><p class="serif text-3xl">Ayam goreng yang bikin kangen</p><p class="text-stone-500 text-sm mt-1">Pesan sekarang, kami siapkan hangat-hangat.</p></div>
+    <div class="flex gap-2 overflow-x-auto pb-3">
+      <template x-for="k in kategori" :key="k"><button @click="kat=k" :class="kat==k?'bg-[#b4491f] text-white border-[#b4491f]':'bg-white border-[#e8dccb]'" class="px-4 py-1.5 rounded-full border text-sm whitespace-nowrap" x-text="k"></button></template>
+    </div>
+    <p x-show="loading" class="text-center text-stone-400 py-10">Memuat menu…</p>
+    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mt-2">
+      <template x-for="p in tampil" :key="p.id">
+        <div class="bg-white rounded-2xl border border-[#eee3d3] overflow-hidden flex flex-col shadow-sm">
+          <div class="aspect-[4/3] bg-[#efe6d8]"><img x-show="p.gambar" :src="p.gambar" loading="lazy" class="w-full h-full object-cover"></div>
+          <div class="p-3 flex-1 flex flex-col">
+            <p class="text-[11px] uppercase tracking-wide text-[#b4491f] font-semibold" x-text="p.kategori"></p>
+            <h3 class="font-semibold leading-tight" x-text="p.nama"></h3>
+            <p class="mt-1 font-semibold" x-text="rp(p.harga)"></p>
+            <div class="mt-auto pt-3">
+              <button x-show="!qty(p.id)" @click="add(p)" class="w-full py-2 rounded-xl bg-[#3b2a20] text-white text-sm font-medium">Tambah</button>
+              <div x-show="qty(p.id)" class="flex items-center justify-between bg-[#f4ebdd] rounded-xl">
+                <button @click="dec(p)" class="w-10 h-9 text-lg">−</button><span class="font-semibold" x-text="qty(p.id)"></span><button @click="add(p)" class="w-10 h-9 text-lg">+</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+  </section>
+
+  <!-- PESANAN SAYA -->
+  <section x-show="tab=='order'" class="pt-6 max-w-xl mx-auto">
+    <h2 class="serif text-2xl mb-3">Pesanan Saya</h2>
+    <div class="bg-white border border-[#eee3d3] rounded-2xl p-4 mb-5">
+      <p class="text-sm text-stone-500 mb-2">Cari pesanan (ID + No. WhatsApp)</p>
+      <div class="flex gap-2"><input x-model="cari.id" placeholder="K261115-001" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm uppercase"><input x-model="cari.hp" placeholder="08…" inputmode="tel" class="flex-1 min-w-0 border rounded-xl px-3 py-2 text-sm"><button @click="cariManual()" :disabled="bCari" class="bg-[#3b2a20] text-white px-4 rounded-xl text-sm disabled:opacity-60"><span x-show="bCari" class="sp"></span>Cari</button></div>
+    </div>
+    <p x-show="!orders.length" class="text-center text-stone-400 py-10">Belum ada pesanan.</p>
+    <template x-for="o in orders" :key="o.id">
+      <div class="bg-white border border-[#eee3d3] rounded-2xl p-4 mb-4 shadow-sm">
+        <div class="flex justify-between text-sm"><b x-text="o.id"></b><span class="text-stone-400" x-text="o.waktu"></span></div>
+        <p class="text-sm whitespace-pre-line mt-2 text-stone-600" x-text="o.pesanan"></p>
+        <p class="font-semibold mt-2" x-text="rp(o.total)+' · '+o.metode"></p>
+        <!-- stepper -->
+        <div x-show="langkah.includes(o.status)" class="flex items-center mt-4">
+          <template x-for="(s,i) in langkah" :key="s"><div class="flex-1 flex flex-col items-center relative">
+            <div class="w-7 h-7 rounded-full text-xs flex items-center justify-center z-10" :class="i<=langkah.indexOf(o.status)?'bg-[#b4491f] text-white':'bg-[#eadfce] text-stone-400'" x-text="i+1"></div>
+            <span class="text-[10px] mt-1 text-center leading-tight" x-text="s=='Menunggu Konfirmasi'?'Menunggu':s"></span>
+            <div x-show="i>0" class="absolute top-3.5 right-1/2 w-full h-0.5 -z-0" :class="i<=langkah.indexOf(o.status)?'bg-[#b4491f]':'bg-[#eadfce]'"></div>
+          </div></template>
+        </div>
+        <p x-show="!langkah.includes(o.status)" class="mt-3 text-center text-sm font-semibold rounded-xl py-2" :class="o.status=='Selesai'?'bg-green-50 text-green-700':'bg-red-50 text-red-600'" x-text="o.status"></p>
+        <p x-show="o.alasan && o.status.includes('Batal')" class="text-xs text-stone-500 mt-1" x-text="'Alasan: '+o.alasan"></p>
+        <p x-show="o.status=='Refund Diminta'" class="text-xs text-stone-500 mt-2">Admin akan mentransfer kembali dana Anda. Pantau via WhatsApp.</p>
+        <button x-show="o.canCancel" @click="mintaBatal(o)" class="mt-4 w-full border border-red-300 text-red-600 rounded-xl py-2 text-sm font-medium">Batalkan Pesanan</button>
+        <p x-show="['Packing','Siap'].includes(o.status)" class="mt-3 text-xs text-center text-stone-500">Pesanan sudah dipacking sehingga tidak dapat dibatalkan.</p>
+      </div>
+    </template>
+  </section>
+</main>
+
+<a href="https://wa.me/6281321389441" target="_blank" class="fixed bottom-24 right-4 z-30 bg-green-500 text-white w-12 h-12 rounded-full shadow-lg flex items-center justify-center text-xl">💬</a>
+
+<div x-show="jumlah>0 && tab=='menu' && !sheet" class="fixed bottom-0 inset-x-0 z-30 p-3">
+  <div class="max-w-md mx-auto flex gap-2"><button @click="kosong=true" title="Kosongkan keranjang" class="w-14 bg-white border border-red-200 text-red-600 rounded-2xl shadow-xl text-xl">🗑</button><button @click="sheet='cart'" class="flex-1 bg-[#b4491f] text-white rounded-2xl px-5 py-3.5 shadow-xl flex justify-between font-semibold"><span x-text="jumlah+' item'"></span><span x-text="'Lihat Keranjang · '+rp(total)"></span></button></div>
+</div>
+
+<!-- SHEET KERANJANG / CHECKOUT -->
+<div x-show="sheet" class="fixed inset-0 z-50 bg-black/50 flex items-end sm:items-center justify-center" @click.self="sheet=null">
+  <div class="bg-[#faf6f0] w-full max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl p-5">
+    <template x-if="sheet=='cart'"><div>
+      <div class="flex justify-between items-center mb-3"><h3 class="serif text-xl">Keranjang</h3><div class="flex items-center gap-3"><button @click="kosong=true" class="text-xs text-red-600 border border-red-200 rounded-full px-3 py-1">🗑 Kosongkan</button><button @click="sheet=null" class="text-2xl text-stone-400">×</button></div></div>
+      <template x-for="(it,i) in cart" :key="it.id"><div class="bg-white rounded-xl p-3 mb-2 border border-[#eee3d3]">
+        <div class="flex justify-between"><b class="text-sm" x-text="it.nama"></b><span class="text-sm" x-text="rp(it.harga*it.qty)"></span></div>
+        <div class="flex gap-2 mt-2"><input x-model="it.catatan" placeholder="Catatan (mis. pedas)" class="flex-1 min-w-0 border rounded-lg px-2 py-1 text-xs">
+          <div class="flex items-center bg-[#f4ebdd] rounded-lg"><button @click="dec(it)" class="w-8">−</button><span class="text-sm w-5 text-center" x-text="it.qty"></span><button @click="add(it)" class="w-8">+</button></div></div>
+      </div></template>
+      <div class="flex justify-between font-semibold my-3"><span>Total</span><span x-text="rp(total)"></span></div>
+      <button @click="sheet='checkout'" class="w-full bg-[#3b2a20] text-white py-3 rounded-xl font-semibold">Lanjut Checkout</button>
+    </div></template>
+
+    <template x-if="sheet=='checkout'"><div>
+      <div class="flex justify-between items-center mb-3"><h3 class="serif text-xl">Checkout</h3><button @click="sheet='cart'" class="text-sm text-stone-500">‹ Kembali</button></div>
+      <input x-model="f.nama" placeholder="Nama" class="w-full border rounded-xl px-3 py-2.5 mb-2 bg-white">
+      <input x-model="f.hp" @blur="cekSaldo()" placeholder="No. WhatsApp (08…)" inputmode="tel" class="w-full border rounded-xl px-3 py-2.5 bg-white">
+      <p x-show="saldo>0" class="mt-2 text-sm bg-blue-50 text-blue-800 rounded-xl p-2.5">Saldo Anda <b x-text="rp(saldo)"></b> akan otomatis dipakai.</p>
+      <p class="text-sm font-semibold mt-4 mb-2">Metode bayar</p>
+      <div class="grid grid-cols-2 gap-2">
+        <template x-for="m in metodeList" :key="m[0]"><button @click="f.metode=m[0]" :class="f.metode==m[0]?'border-[#b4491f] bg-orange-50':'bg-white'" class="border rounded-xl py-2.5 text-sm" x-text="m[1]"></button></template>
+      </div>
+      <div x-show="perluBukti" class="mt-3 bg-white border rounded-xl p-3">
+        <p class="text-sm mb-2">Upload bukti pembayaran</p><input type="file" accept="image/*" @change="pilihBukti($event)" class="text-xs w-full">
+        <p x-show="f.bukti" class="text-xs text-green-600 mt-1">✓ Foto siap dikirim</p>
+      </div>
+      <div class="mt-4 text-sm space-y-1"><div class="flex justify-between"><span>Total</span><span x-text="rp(total)"></span></div>
+        <div x-show="saldo>0" class="flex justify-between text-blue-700"><span>Saldo dipakai</span><span x-text="'− '+rp(Math.min(saldo,total))"></span></div>
+        <div class="flex justify-between font-semibold text-base"><span>Bayar</span><span x-text="rp(sisa)"></span></div></div>
+      <button @click="kirim()" :disabled="busy" class="w-full mt-4 bg-[#b4491f] text-white py-3 rounded-xl font-semibold disabled:opacity-60"><span x-show="busy" class="sp"></span><span x-text="busy?'Memproses…':'Kirim Pesanan'"></span></button>
+    </div></template>
+  </div>
+</div>
+
+<!-- KONFIRMASI KOSONGKAN -->
+<div x-show="kosong" class="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4"><div class="bg-white rounded-2xl p-5 w-full max-w-sm text-center"><h3 class="serif text-xl mb-1">Kosongkan keranjang?</h3><p class="text-sm text-stone-500 mb-4">Semua menu di keranjang akan dihapus.</p><div class="flex gap-2"><button @click="kosong=false" class="flex-1 py-2.5 bg-stone-100 rounded-xl text-sm">Batal</button><button @click="cart=[];sheet=null;kosong=false;note('Keranjang dikosongkan')" class="flex-1 py-2.5 bg-red-600 text-white rounded-xl text-sm font-medium">Ya, kosongkan</button></div></div></div>
+
+<!-- MODAL BATAL -->
+<div x-show="batal" class="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
+  <div class="bg-white rounded-2xl p-5 w-full max-w-sm text-center" x-show="batal" :class="bBatal&&'pointer-events-none opacity-70'">
+    <h3 class="serif text-xl mb-2">Batalkan pesanan?</h3><p x-show="bBatal" class="text-sm text-stone-500 mb-2"><span class="sp"></span>Memproses pembatalan…</p>
+    <template x-if="batal && batal.transfer>0"><div class="space-y-2">
+      <p class="text-sm text-stone-500 mb-3">Dana <b x-text="rp(batal.transfer)"></b> sudah kami terima. Pilih:</p>
+      <button @click="konfirmBatal('Refund')" class="w-full py-2.5 rounded-xl bg-red-50 text-red-700 border border-red-200 text-sm font-medium">Kembalikan uang (Refund)</button>
+      <button @click="konfirmBatal('Saldo')" class="w-full py-2.5 rounded-xl bg-blue-50 text-blue-700 border border-blue-200 text-sm font-medium">Simpan sebagai saldo</button>
+    </div></template>
+    <template x-if="batal && !(batal.transfer>0)"><button @click="konfirmBatal('')" class="w-full py-2.5 rounded-xl bg-red-600 text-white text-sm font-medium">Ya, batalkan</button></template>
+    <button @click="batal=null" class="w-full mt-2 py-2 text-sm text-stone-500">Jangan batal</button>
+  </div>
+</div>
+
+<script>
+const API='https://script.google.com/macros/s/AKfycbyVKyIODSNyBukhI_GsqSObOeBe1m1a4AvMcaRM0Bv96KvYImAoccT0pdJF6q9PYW-P/exec'; // ganti dgn URL deploy V7
+const post=b=>fetch(API,{method:'POST',body:JSON.stringify(b)}).then(r=>r.json());
+function app(){return{
+ tab:'menu',produk:[],kat:'Semua',loading:true,cart:[],sheet:null,busy:false,bBatal:false,bCari:false,kosong:false,toast:'',saldo:0,batal:null,orders:[],cari:{id:'',hp:''},
+ langkah:['Menunggu Konfirmasi','Diproses','Packing','Siap','Selesai'],
+ metodeList:[['Cash','💵 Tunai'],['Bayar Nanti','⏳ Bayar Nanti'],['Transfer','🏦 Transfer'],['QRIS','📱 QRIS']],
+ f:{nama:localStorage.nama||'',hp:localStorage.hp||'',metode:'Cash',bukti:null},
+ rp:n=>'Rp '+Number(n).toLocaleString('id-ID'),
+ get kategori(){return['Semua',...new Set(this.produk.map(p=>p.kategori))]},
+ get tampil(){return this.kat=='Semua'?this.produk:this.produk.filter(p=>p.kategori==this.kat)},
+ get total(){return this.cart.reduce((s,i)=>s+i.harga*i.qty,0)},
+ get jumlah(){return this.cart.reduce((s,i)=>s+i.qty,0)},
+ get sisa(){return this.total-Math.min(this.saldo,this.total)},
+ get perluBukti(){return this.sisa>0&&['Transfer','QRIS'].includes(this.f.metode)},
+ qty(id){return(this.cart.find(i=>i.id==id)||{}).qty||0},
+ add(p){const e=this.cart.find(i=>i.id==p.id);e?e.qty++:this.cart.push({...p,qty:1,catatan:''})},
+ dec(p){const e=this.cart.find(i=>i.id==p.id);if(!e)return;if(--e.qty<=0)this.cart=this.cart.filter(i=>i!=e);if(!this.cart.length)this.sheet=null},
+ note(m){this.toast=m;setTimeout(()=>this.toast='',3000)},
+ async init(){
+  try{this.produk=await fetch(API+'?action=getProduk').then(r=>r.json())}catch(e){this.note('Gagal memuat menu')}
+  this.loading=false;this.loadOrders();
+  setInterval(()=>{if(this.tab=='order')this.loadOrders()},10000);
+ },
+ async cekSaldo(){if(this.f.hp.length>8){try{this.saldo=(await post({action:'cekSaldo',hp:this.f.hp})).saldo||0}catch(e){}}},
+ pilihBukti(ev){const file=ev.target.files[0];if(!file)return;const img=new Image();img.onload=()=>{
+  const s=Math.min(1,1000/Math.max(img.width,img.height)),c=document.createElement('canvas');c.width=img.width*s;c.height=img.height*s;
+  c.getContext('2d').drawImage(img,0,0,c.width,c.height);this.f.bukti=c.toDataURL('image/jpeg',.75).split(',')[1]};img.src=URL.createObjectURL(file)},
+ async kirim(){
+  if(!this.f.nama||this.f.hp.length<9)return this.note('Nama & No. WhatsApp wajib diisi');
+  if(this.perluBukti&&!this.f.bukti)return this.note('Upload bukti pembayaran dulu');
+  this.busy=true;
+  try{const r=await post({action:'checkout',nama:this.f.nama,hp:this.f.hp,metode:this.f.metode,buktiBase64:this.perluBukti?this.f.bukti:null,buktiMime:'image/jpeg',buktiName:'bukti.jpg',
+    items:this.cart.map(i=>({id:i.id,qty:i.qty,catatan:i.catatan}))});
+   if(r.status!='success')throw new Error(r.message);
+   localStorage.nama=this.f.nama;localStorage.hp=this.f.hp;this.simpan({id:r.orderId,hp:this.f.hp});
+   this.cart=[];this.sheet=null;this.f.bukti=null;this.saldo=0;this.tab='order';this.note('Pesanan terkirim: '+r.orderId);this.loadOrders();
+  }catch(e){this.note(e.message||'Koneksi gagal')}
+  this.busy=false},
+ simpan(o){const l=JSON.parse(localStorage.myOrders||'[]').filter(x=>x.id!=o.id);l.unshift(o);localStorage.myOrders=JSON.stringify(l.slice(0,15))},
+ async loadOrders(){const l=JSON.parse(localStorage.myOrders||'[]');
+  const r=await Promise.all(l.map(o=>post({action:'lacak',id:o.id,hp:o.hp}).then(x=>x.data).catch(()=>null)));this.orders=r.filter(Boolean)},
+ async cariManual(){this.bCari=true;
+  try{const r=await post({action:'lacak',id:this.cari.id,hp:this.cari.hp});
+   if(!r.data)this.note('Pesanan tidak ditemukan');else{this.simpan({id:r.data.id,hp:this.cari.hp});await this.loadOrders()}}
+  catch(e){this.note('Koneksi gagal')}
+  this.bCari=false},
+ mintaBatal(o){this.batal=o},
+ async konfirmBatal(opsi){const o=this.batal;this.bBatal=true;
+  try{const r=await post({action:'batal',id:o.id,hp:JSON.parse(localStorage.myOrders||'[]').find(x=>x.id==o.id).hp,opsi});
+   this.note(r.status=='success'?'Pesanan dibatalkan':r.message);await this.loadOrders()}
+  catch(e){this.note('Koneksi gagal')}
+  this.bBatal=false;this.batal=null}
+}}
+</script>
+</body>
+</html>
