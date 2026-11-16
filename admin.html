@@ -146,7 +146,7 @@
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
       <template x-for="p in produk" :key="p.id"><div class="bg-white rounded-2xl p-3 shadow-sm">
         <div class="aspect-[4/3] bg-stone-100 rounded-xl overflow-hidden mb-2"><img x-show="p.gambar" :src="p.gambar" class="w-full h-full object-cover"></div>
-        <b class="text-sm" x-text="p.nama"></b><p class="text-sm text-[#b4491f] font-semibold" x-text="rp(p.harga)"></p>
+        <b class="text-sm" x-text="p.nama"></b><p class="text-sm text-[#b4491f] font-semibold" x-text="rp(p.harga)"></p><p x-show="p.opsi&&p.opsi.length" class="text-[10px] text-sky-700" x-text="p.opsi.map(g=>g.nama).join(' · ')"></p>
         <div class="flex gap-2 mt-2"><button @click="produkOpen(p)" class="flex-1 bg-blue-50 text-blue-700 rounded-lg py-1 text-xs">Edit</button><button @click="hapus(p)" class="flex-1 bg-red-50 text-red-600 rounded-lg py-1 text-xs">Hapus</button></div>
       </div></template>
     </div>
@@ -156,7 +156,7 @@
 
 <!-- MODAL UMUM -->
 <div x-show="m.type" :class="m.type?'':'pointer-events-none'" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="m.type=null">
-  <div class="bg-white rounded-2xl p-5 w-full max-w-sm">
+  <div class="bg-white rounded-2xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto">
     <h3 class="font-bold text-lg mb-3" x-text="m.title"></h3>
     <template x-if="m.type=='tolak'"><div><textarea x-model="m.alasan" rows="2" placeholder="Alasan (mis. menu habis)" class="w-full border rounded-xl p-2 text-sm"></textarea>
       <div x-show="m.o.metode=='Transfer'||m.o.metode=='QRIS'" class="mt-2 text-sm space-y-1"><label class="flex gap-2"><input type="radio" value="Refund" x-model="m.opsi"> Kembalikan uang (Refund)</label><label class="flex gap-2"><input type="radio" value="Saldo" x-model="m.opsi"> Jadikan saldo pelanggan</label></div></div></template>
@@ -177,6 +177,15 @@
     <template x-if="m.type=='produk'"><div class="space-y-2">
       <input x-model="m.nama" placeholder="Nama menu" class="w-full border rounded-xl p-2"><input type="number" x-model.number="m.harga" placeholder="Harga" class="w-full border rounded-xl p-2">
       <select x-model="m.kategori" class="w-full border rounded-xl p-2"><option>Makanan</option><option>Minuman</option><option>Cemilan</option></select>
+      <div class="border rounded-xl p-3 space-y-2 text-sm">
+        <div class="flex justify-between items-center"><b>Pilihan menu (opsional)</b><button @click="templateAyamNasi()" class="text-xs text-blue-600 underline">Template Ayam + Nasi</button></div>
+        <p class="text-[11px] text-stone-400">Harga akhir = harga dasar di atas + tambahan tiap pilihan (boleh minus, mis. porsi 1/2).</p>
+        <template x-for="(g,gi) in m.opsi" :key="gi"><div class="bg-stone-50 rounded-lg p-2">
+          <div class="flex gap-2"><input x-model="g.nama" placeholder="Nama grup (mis. Jenis Nasi)" class="flex-1 min-w-0 border rounded-lg p-1.5 text-xs"><button @click="m.opsi.splice(gi,1)" class="text-red-500 text-xs">Hapus grup</button></div>
+          <template x-for="(o,oi) in g.pilihan" :key="oi"><div class="flex gap-1 mt-1"><input x-model="o.nama" placeholder="Pilihan" class="flex-1 min-w-0 border rounded-lg p-1.5 text-xs"><input type="number" x-model.number="o.tambah" placeholder="+Rp" class="w-24 border rounded-lg p-1.5 text-xs"><button @click="g.pilihan.splice(oi,1)" class="text-red-500 text-xs px-1">×</button></div></template>
+          <button @click="g.pilihan.push({nama:'',tambah:0})" class="text-xs text-blue-600 mt-1">+ pilihan</button></div></template>
+        <button @click="m.opsi.push({nama:'',wajib:true,pilihan:[{nama:'',tambah:0}]})" class="text-xs bg-stone-100 rounded-lg px-3 py-1.5">+ Tambah grup pilihan</button>
+      </div>
       <input type="file" accept="image/*" @change="foto($event,'m')" class="text-xs w-full"></div></template>
     <template x-if="m.type=='hapus'"><p class="text-sm" x-text="'Hapus menu '+m.o.nama+' beserta fotonya?'"></p></template>
     <div class="flex gap-2 mt-4"><button @click="m.type=null" :disabled="mBusy" class="flex-1 py-2 bg-stone-100 rounded-xl text-sm disabled:opacity-50">Batal</button><button @click="submit()" :disabled="mBusy" class="flex-1 py-2 bg-[#3b2a20] text-white rounded-xl text-sm font-medium disabled:opacity-60"><span x-show="mBusy" class="sp"></span><span x-text="mBusy?'Memproses…':'Simpan'"></span></button></div>
@@ -314,7 +323,8 @@ function admin(){return{
  selesaiOpen(o){this.m={type:'selesai',title:'Selesaikan '+o.id,o,nominal:o.total-o.saldo,lunas:o.metode!='Bayar Nanti'}},
  refundOpen(o){this.m={type:'refund',title:'Refund '+o.id,o,base64:null}},
  editOpen(o){this.m={type:'edit',title:'Edit '+o.id,o,pesanan:o.pesanan,total:o.total}},
- produkOpen(p){this.m={type:'produk',title:p?'Edit menu':'Tambah menu',o:p,id:p?p.id:null,nama:p?p.nama:'',harga:p?p.harga:'',kategori:p?p.kategori:'Makanan',base64:null}},
+ produkOpen(p){this.m={type:'produk',title:p?'Edit menu':'Tambah menu',o:p,id:p?p.id:null,nama:p?p.nama:'',harga:p?p.harga:'',kategori:p?p.kategori:'Makanan',opsi:p&&p.opsi?JSON.parse(JSON.stringify(p.opsi)):[],base64:null}},
+ templateAyamNasi(){this.m.opsi=[{nama:'Jenis Nasi',wajib:true,pilihan:[{nama:'Nasi Biasa',tambah:0},{nama:'Nasi Daun Jeruk',tambah:0}]},{nama:'Porsi Nasi',wajib:true,pilihan:[{nama:'1',tambah:0},{nama:'1/2',tambah:0},{nama:'2',tambah:0}]}]},
  tarikOpen(t){this.m={type:'tarik',title:'Proses penarikan',o:t,base64:null}},
  hapus(p){this.m={type:'hapus',title:'Hapus menu',o:p}},
  foto(ev,key){const f=ev.target.files[0];if(!f)return;const img=new Image();img.onload=()=>{const s=Math.min(1,900/Math.max(img.width,img.height)),c=document.createElement('canvas');
@@ -327,7 +337,7 @@ function admin(){return{
   if(m.type=='tarik')return this.aksi(o.id+'|x',{action:'prosesTarik',id:o.id,buktiBase64:m.base64,buktiMime:'image/jpeg',buktiName:m.name},'Penarikan dicatat',()=>this.notifTarik(o));
   if(m.type=='edit')return this.aksi(o.id+'|x',{action:'editPesanan',id:o.id,pesanan:m.pesanan,total:m.total},'Pesanan diperbarui',()=>this.notifEdit(o,m));
   if(m.type=='hapus')return this.aksi(o.id+'|h',{action:'hapusProduk',id:o.id},'Menu dihapus');
-  if(m.type=='produk')return this.aksi('prod',{action:m.id?'editProduk':'simpanProduk',id:m.id,nama:m.nama,harga:m.harga,kategori:m.kategori,base64File:m.base64,mimeType:'image/jpeg',fileName:m.name||'menu.jpg'},'Menu tersimpan')}
+  if(m.type=='produk')return this.aksi('prod',{action:m.id?'editProduk':'simpanProduk',id:m.id,nama:m.nama,harga:m.harga,kategori:m.kategori,opsi:m.opsi,base64File:m.base64,mimeType:'image/jpeg',fileName:m.name||'menu.jpg'},'Menu tersimpan')}
 }}
 </script>
 </body>
