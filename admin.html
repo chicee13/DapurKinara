@@ -55,13 +55,13 @@
           <p x-show="o.saldo>0" class="text-xs text-blue-700" x-text="'Saldo dipakai '+rp(o.saldo)+' → tagih '+rp(o.total-o.saldo)"></p>
           <a x-show="o.bukti" :href="o.bukti" target="_blank" class="text-xs text-blue-600 underline mt-1">Lihat bukti transfer</a>
           <p x-show="o.status=='Refund Diminta'" class="text-xs bg-purple-50 text-purple-800 rounded-lg p-2 mt-2 break-words" x-text="'Refund '+rp(o.total-o.saldo)+' → '+(o.tujuan||'tujuan belum diisi, chat WA pelanggan')"></p>
-          <button x-show="o.metode=='Bayar Nanti' && o.lunas!='Lunas' && o.status!='Refund Diminta'" @click="lunas(o)" :disabled="rowBusy(o.id)" class="mt-2 text-xs bg-amber-100 text-amber-800 border border-amber-300 rounded-lg py-1.5 font-medium"><span x-show="busy[o.id+'|l']" class="sp"></span><span x-text="o.lunas=='Menunggu Verifikasi'?'✔ Bukti bayar masuk · Verifikasi & Lunas':'Tandai Lunas (sudah bayar)'"></span></button>
+          <button x-show="(o.metode=='Bayar Nanti'||o.metode=='Cash') && o.lunas!='Lunas' && o.status!='Refund Diminta'" @click="lunas(o)" :disabled="rowBusy(o.id)" class="mt-2 text-xs bg-amber-100 text-amber-800 border border-amber-300 rounded-lg py-1.5 font-medium"><span x-show="busy[o.id+'|l']" class="sp"></span><span x-text="o.lunas=='Menunggu Verifikasi'?'✔ Bukti bayar masuk · Verifikasi & Lunas':'Tandai Lunas (sudah bayar)'"></span></button>
           <p class="text-center text-xs font-semibold mt-3" x-text="o.status"></p>
           <div class="mt-2 flex gap-2">
             <template x-if="o.status=='Refund Diminta'"><button @click="refundOpen(o)" class="flex-1 bg-blue-600 text-white py-2 rounded-xl text-sm font-medium">Proses Refund</button></template>
             <template x-if="o.status!='Refund Diminta'"><div class="flex gap-2 w-full">
               <button @click="tolakOpen(o)" class="px-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium">Tolak</button>
-              <button x-show="o.status!='Siap'" @click="maju(o)" :disabled="rowBusy(o.id)" class="flex-1 bg-[#3b2a20] text-white py-2 rounded-xl text-sm font-medium disabled:opacity-60"><span x-show="busy[o.id+'|m']" class="sp"></span><span x-text="busy[o.id+'|m']?'Memproses…':'→ '+nextLabel[o.status]"></span></button>
+              <button x-show="o.status!='Siap'" @click="maju(o)" :disabled="rowBusy(o.id)" class="flex-1 bg-[#3b2a20] text-white py-2 rounded-xl text-sm font-medium disabled:opacity-60"><span x-show="busy[o.id+'|m']" class="sp"></span><span x-text="busy[o.id+'|m']?'Memproses…':(o.status=='Menunggu Konfirmasi'&&(o.metode=='Transfer'||o.metode=='QRIS')?'Bukti valid · Terima & Proses':'→ '+nextLabel[o.status])"></span></button>
               <button x-show="o.status=='Siap'" @click="selesaiOpen(o)" class="flex-1 bg-green-600 text-white py-2 rounded-xl text-sm font-medium">✔ Selesaikan</button>
             </div></template>
           </div>
@@ -76,15 +76,29 @@
     <div class="bg-white rounded-2xl p-4 mb-4 flex gap-6 text-sm">
       <div><p class="text-stone-400">Omzet selesai (150 terakhir)</p><b class="text-lg" x-text="rp(omzet)"></b></div>
       <div><p class="text-stone-400">Belum lunas</p><b class="text-lg text-red-600" x-text="rp(piutang)"></b></div>
+      <label class="ml-auto flex items-center gap-2 text-xs self-center"><input type="checkbox" x-model="filterBelum"> Hanya yang belum lunas</label>
     </div>
     <div class="bg-white rounded-2xl overflow-x-auto"><table class="w-full text-sm min-w-[640px]">
       <tr class="bg-stone-100 text-left"><th class="p-3">Pesanan</th><th class="p-3">Total</th><th class="p-3">Bayar</th><th class="p-3">Status</th></tr>
-      <template x-for="r in riwayat" :key="r.id"><tr class="border-t">
+      <template x-for="r in riwayatTampil" :key="r.id"><tr class="border-t">
         <td class="p-3"><b x-text="r.id"></b> <span class="text-xs text-stone-400" x-text="r.waktu"></span><div class="text-xs" x-text="r.nama+' · '+r.pesanan.replace(/\n/g,', ')"></div></td>
         <td class="p-3" x-text="rp(r.total)"></td>
-        <td class="p-3"><span x-show="r.lunas=='Lunas'" class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Lunas</span>
-          <button x-show="r.lunas!='Lunas' && r.status=='Selesai'" @click="lunas(r)" :disabled="busy[r.id+'|l']" class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full disabled:opacity-60"><span x-show="busy[r.id+'|l']" class="sp"></span><span x-text="r.lunas=='Menunggu Verifikasi'?'Verifikasi bukti · Lunas':'Belum lunas · tandai'"></span></button>
-          <a x-show="r.lunas=='Menunggu Verifikasi' && r.bukti" :href="r.bukti" target="_blank" class="block text-xs text-blue-600 underline mt-1">Lihat bukti</a></td>
+        <td class="p-3 min-w-[170px]">
+          <template x-if="r.status=='Selesai'"><div>
+            <span x-show="r.lunas=='Lunas'" class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full" x-text="'Lunas'+(r.cara?' · '+r.cara:'')"></span>
+            <p x-show="r.lunas=='Lunas' && r.lunasAt" class="text-[10px] text-stone-400 mt-0.5" x-text="r.lunasAt"></p>
+            <div x-show="r.lunas!='Lunas'">
+              <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full" x-text="r.lunas=='Menunggu Verifikasi'?'MENUNGGU VERIFIKASI':'BELUM LUNAS'"></span>
+              <p class="text-xs font-semibold text-red-600 mt-1" x-text="'Tagihan '+rp(r.total-r.saldo)"></p>
+              <a x-show="r.lunas=='Menunggu Verifikasi' && r.bukti" :href="r.bukti" target="_blank" class="block text-xs text-blue-600 underline">Lihat bukti dari pembeli</a>
+              <div class="flex flex-wrap gap-1 mt-2">
+                <button @click="lunasOpen(r)" :disabled="rowBusy(r.id)" class="text-xs bg-blue-600 text-white px-2 py-1 rounded-lg disabled:opacity-60"><span x-show="busy[r.id+'|l']" class="sp"></span>Tandai Lunas</button>
+                <button @click="ingatkan(r)" class="text-xs bg-green-500 text-white px-2 py-1 rounded-lg">💬 Ingatkan</button>
+              </div>
+              <p x-show="r.remind" class="text-[10px] text-stone-400 mt-1" x-text="'Diingatkan '+r.remind"></p>
+            </div>
+          </div></template>
+          <span x-show="r.status!='Selesai'" class="text-xs text-stone-400">–</span></td>
         <td class="p-3 text-xs"><span x-text="r.status"></span><a x-show="r.refund" :href="r.refund" target="_blank" class="block text-blue-600 underline">Bukti refund</a></td>
       </tr></template>
     </table></div>
@@ -119,7 +133,7 @@
 </main>
 </div>
 
-<!-- MODAL UMUM (pointer-events-none saat tertutup agar tidak pernah menghalangi klik) -->
+<!-- MODAL UMUM -->
 <div x-show="m.type" :class="m.type?'':'pointer-events-none'" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="m.type=null">
   <div class="bg-white rounded-2xl p-5 w-full max-w-sm">
     <h3 class="font-bold text-lg mb-3" x-text="m.title"></h3>
@@ -130,6 +144,13 @@
       <p class="text-sm" x-text="'Kembalian: '+rp(Math.max(0,m.nominal-(m.o.total-m.o.saldo)))"></p>
       <label class="flex items-center gap-2 text-sm mt-2"><input type="checkbox" x-model="m.lunas"> Sudah dibayar (Lunas)</label></div></template>
     <template x-if="m.type=='refund'"><div><p class="text-sm mb-2" x-text="'Transfer balik ke '+m.o.nama+' ('+m.o.hp+')'"></p><input type="file" accept="image/*" @change="foto($event,'m')" class="text-xs w-full"></div></template>
+    <template x-if="m.type=='lunas'"><div>
+      <p class="text-sm" x-text="m.o.nama+' · '+m.o.id"></p><p class="text-2xl font-bold text-[#b4491f] my-1" x-text="rp(m.o.total-m.o.saldo)"></p>
+      <a x-show="m.o.bukti && m.o.lunas=='Menunggu Verifikasi'" :href="m.o.bukti" target="_blank" class="text-xs text-blue-600 underline">Lihat bukti dari pembeli</a>
+      <p class="text-sm font-semibold mt-3 mb-1">Pembayaran diterima via</p>
+      <div class="space-y-1 text-sm"><label class="flex gap-2"><input type="radio" value="Cash" x-model="m.cara"> Tunai (Cash)</label><label class="flex gap-2"><input type="radio" value="Transfer" x-model="m.cara"> Transfer</label><label class="flex gap-2"><input type="radio" value="QRIS" x-model="m.cara"> QRIS</label></div>
+      <p class="text-xs text-stone-500 mt-2">Pastikan uang sudah masuk (cek mutasi/bukti) sebelum menandai lunas.</p>
+      <button x-show="m.o.lunas=='Menunggu Verifikasi'" @click="tolakBukti()" class="mt-3 text-xs text-red-600 underline">Bukti tidak valid? Tolak bukti</button></div></template>
     <template x-if="m.type=='tarik'"><div><p class="text-sm" x-text="'Transfer '+rp(m.o.nominal)+' ke:'"></p><p class="font-semibold text-sm my-2 break-words" x-text="m.o.tujuan"></p><input type="file" accept="image/*" @change="foto($event,'m')" class="text-xs w-full"></div></template>
     <template x-if="m.type=='edit'"><div><textarea x-model="m.pesanan" rows="4" class="w-full border rounded-xl p-2 text-sm"></textarea><label class="text-xs">Total (Rp)</label><input type="number" x-model.number="m.total" class="w-full border rounded-xl p-2"></div></template>
     <template x-if="m.type=='produk'"><div class="space-y-2">
@@ -150,21 +171,22 @@ const store={
   del(s,k){try{window[s].removeItem(k)}catch(e){}}
 };
 function admin(){return{
- tab:'antrean',token:store.get('sessionStorage','kt')||'',pin:'',loginErr:'',aktif:[],riwayat:[],produk:[],penarikan:[],toast:'',m:{type:null},busy:{},
+ tab:'antrean',token:store.get('sessionStorage','kt')||'',pin:'',loginErr:'',aktif:[],riwayat:[],produk:[],penarikan:[],filterBelum:false,toast:'',m:{type:null},busy:{},
  ctx:null,audioOK:false,suara:store.get('localStorage','suara')!='off',ringT:null,pollT:null,loading:false,
  nextLabel:{'Menunggu Konfirmasi':'Terima & Proses','Diproses':'Packing','Packing':'Siap'},
  rp:n=>'Rp '+Number(n||0).toLocaleString('id-ID'),
  warna:s=>({'Menunggu Konfirmasi':'border-red-500','Diproses':'border-amber-500','Packing':'border-blue-500','Siap':'border-green-500','Refund Diminta':'border-purple-500'}[s]),
  get omzet(){return this.riwayat.filter(r=>r.status=='Selesai').reduce((s,r)=>s+r.total,0)},
  get piutang(){return this.riwayat.filter(r=>r.status=='Selesai'&&r.lunas!='Lunas').reduce((s,r)=>s+r.total-r.saldo,0)},
+ get riwayatTampil(){return this.filterBelum?this.riwayat.filter(r=>r.status=='Selesai'&&r.lunas!='Lunas'):this.riwayat},
  get mBusy(){return !!this.busy.prod||!!(this.m.o&&this.rowBusy(this.m.o.id))},
  rowBusy(id){return Object.keys(this.busy).some(k=>k.startsWith(id+'|'))},
  note(t){this.toast=t;setTimeout(()=>this.toast='',3000)},
 
- // ---- Suara notifikasi (dibuat dengan WebAudio, tanpa file) ----
+ // ---- Suara notifikasi (WebAudio) ----
  initAudio(){try{
    if(!this.ctx){this.ctx=new(window.AudioContext||window.webkitAudioContext)();
-     const o=this.ctx.createOscillator(),g=this.ctx.createGain();g.gain.value=0.00001;o.connect(g);g.connect(this.ctx.destination);o.start()} // nada senyap: cegah tab di-throttle saat di background
+     const o=this.ctx.createOscillator(),g=this.ctx.createGain();g.gain.value=0.00001;o.connect(g);g.connect(this.ctx.destination);o.start()}
    if(this.ctx.state!='running')this.ctx.resume().then(()=>this.audioOK=this.ctx.state=='running').catch(()=>{});
    this.audioOK=this.ctx.state=='running'}catch(e){}},
  bell(){if(!this.suara||!this.ctx||this.ctx.state!='running')return;
@@ -172,23 +194,26 @@ function admin(){return{
      o.type='sine';o.frequency.value=f;g.gain.setValueAtTime(0,s);g.gain.linearRampToValueAtTime(.6,s+.02);g.gain.exponentialRampToValueAtTime(.001,s+.35);
      o.connect(g);g.connect(this.ctx.destination);o.start(s);o.stop(s+.4)})},
  toggleSuara(){this.suara=!this.suara;store.set('localStorage','suara',this.suara?'on':'off');this.initAudio();if(this.suara)this.bell()},
- cekRing(baru){ // berdering tiap 6 detik selama masih ada pesanan 'Menunggu Konfirmasi'
+ cekRing(baru){
    if(baru>0){if(!this.ringT){this.bell();this.ringT=setInterval(()=>this.bell(),6000)}}
    else if(this.ringT){clearInterval(this.ringT);this.ringT=null}},
 
- // ---- WhatsApp: pakai tab bernama 'wa_kinara' agar tab yang sama dipakai ulang ----
- waOpen(o){const n='62'+o.hp.slice(1),t=encodeURIComponent('Halo kak '+o.nama+', pesanan '+o.id+' di Dapur Kinara: '+o.status+'.');
-   const mob=/Android|iPhone|iPad/i.test(navigator.userAgent);
+ // ---- WhatsApp: tab bernama 'wa_kinara' dipakai ulang ----
+ bukaWA(hp,teks){const n='62'+hp.slice(1),t=encodeURIComponent(teks),mob=/Android|iPhone|iPad/i.test(navigator.userAgent);
    const w=window.open(mob?`https://wa.me/${n}?text=${t}`:`https://web.whatsapp.com/send?phone=${n}&text=${t}`,'wa_kinara');if(w)w.focus()},
+ waOpen(o){this.bukaWA(o.hp,'Halo kak '+o.nama+', pesanan '+o.id+' di Dapur Kinara: '+o.status+'.')},
+ ingatkan(r){ // pengingat pembayaran via WA + catat waktunya
+   this.bukaWA(r.hp,'Halo kak '+r.nama+', kami dari Dapur Kinara. Mengingatkan pesanan '+r.id+' ('+r.pesanan.replace(/\n/g,', ')+') sebesar '+this.rp(r.total-r.saldo)+' belum dibayar. Pembayaran bisa tunai, transfer, atau QRIS. Terima kasih 🙏');
+   this.api({action:'catatPengingat',id:r.id}).then(()=>this.load())},
 
- // ---- API (dengan timeout 25 dtk agar tombol tidak macet selamanya) ----
+ // ---- API (timeout 25 dtk) ----
  async api(b){const c=new AbortController(),tm=setTimeout(()=>c.abort(),25000);
    try{const res=await fetch(API,{method:'POST',body:JSON.stringify({token:this.token,...b}),signal:c.signal});
      const r=await res.json();
      if(r.code=='AUTH'){this.logout();this.note(r.message)}return r}
    catch(e){return{status:'error',message:e.name=='AbortError'?'Server tidak merespons (timeout)':'Koneksi gagal / server belum di-deploy ulang (V7)'}}
    finally{clearTimeout(tm)}},
- init(){document.addEventListener('click',()=>this.initAudio());if(this.token)this.mulai()}, // dipanggil otomatis oleh Alpine
+ init(){document.addEventListener('click',()=>this.initAudio());if(this.token)this.mulai()},
  mulai(){if(this.pollT)return;this.load();this.pollT=setInterval(()=>{if(this.token)this.load()},5000)},
  async login(){
    if(this.busy.login)return;
@@ -209,13 +234,15 @@ function admin(){return{
      this.aktif=r.aktif;this.riwayat=r.riwayat;this.produk=r.produk;this.penarikan=r.penarikan||[]}
    finally{this.loading=false}},
 
- // ---- Aksi: spinner tampil sampai server selesai & data dimuat ulang, baru status berubah ----
+ // ---- Aksi: spinner sampai server selesai & data dimuat ulang ----
  async aksi(key,b,ok){this.busy[key]=true;
    try{const r=await this.api(b);this.note(r.status=='success'?ok:(r.message||'Gagal'));
      if(r.status=='success'){await this.load();this.m.type=null}}
    finally{delete this.busy[key]}},
- maju(o){this.aksi(o.id+'|m',{action:'setStatus',id:o.id},'Status diperbarui')},
- lunas(r){this.aksi(r.id+'|l',{action:'tandaiLunas',id:r.id},'Ditandai lunas')},
+ maju(o){this.aksi(o.id+'|m',{action:'setStatus',id:o.id},o.status=='Menunggu Konfirmasi'&&(o.metode=='Transfer'||o.metode=='QRIS')?'Diterima · pembayaran LUNAS':'Status diperbarui')},
+ lunas(r){this.lunasOpen(r)},
+ lunasOpen(r){this.m={type:'lunas',title:'Tandai lunas '+r.id,o:r,cara:(r.lunas=='Menunggu Verifikasi'||r.metode=='Transfer')?'Transfer':(r.metode=='QRIS'?'QRIS':'Cash')}},
+ tolakBukti(){const o=this.m.o;this.aksi(o.id+'|l',{action:'tolakBukti',id:o.id},'Bukti ditolak · kembali Belum Lunas')},
  tolakOpen(o){this.m={type:'tolak',title:'Tolak / batalkan '+o.id,o,alasan:'Menu habis',opsi:'Refund'}},
  selesaiOpen(o){this.m={type:'selesai',title:'Selesaikan '+o.id,o,nominal:o.total-o.saldo,lunas:o.metode!='Bayar Nanti'}},
  refundOpen(o){this.m={type:'refund',title:'Refund '+o.id,o,base64:null}},
@@ -226,6 +253,7 @@ function admin(){return{
  foto(ev,key){const f=ev.target.files[0];if(!f)return;const img=new Image();img.onload=()=>{const s=Math.min(1,900/Math.max(img.width,img.height)),c=document.createElement('canvas');
    c.width=img.width*s;c.height=img.height*s;c.getContext('2d').drawImage(img,0,0,c.width,c.height);this[key].base64=c.toDataURL('image/jpeg',.75).split(',')[1];this[key].name=f.name.replace(/\.\w+$/,'')+'.jpg'};img.src=URL.createObjectURL(f)},
  submit(){const m=this.m,o=m.o;
+  if(m.type=='lunas')return this.aksi(o.id+'|l',{action:'tandaiLunas',id:o.id,cara:m.cara},'Ditandai lunas ('+m.cara+')');
   if(m.type=='tolak')return this.aksi(o.id+'|x',{action:'tolak',id:o.id,alasan:m.alasan,opsi:m.opsi},'Pesanan ditolak');
   if(m.type=='selesai')return this.aksi(o.id+'|x',{action:'selesai',id:o.id,nominal:m.nominal,lunas:m.lunas},'Pesanan selesai');
   if(m.type=='refund')return this.aksi(o.id+'|x',{action:'refund',id:o.id,buktiBase64:m.base64,buktiMime:'image/jpeg',buktiName:m.name},'Refund dicatat');
