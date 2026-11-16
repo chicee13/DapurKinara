@@ -40,10 +40,10 @@
           <div class="p-3 flex-1 flex flex-col">
             <p class="text-[11px] uppercase tracking-wide text-[#b4491f] font-semibold" x-text="p.kategori"></p>
             <h3 class="font-semibold leading-tight" x-text="p.nama"></h3>
-            <p class="mt-1 font-semibold" x-text="rp(p.harga)"></p>
+            <p class="mt-1 font-semibold" x-text="(hasOpsi(p)?'mulai ':'')+rp(hargaMin(p))"></p>
             <div class="mt-auto pt-3">
-              <button x-show="!qty(p.id)" @click="add(p)" class="w-full py-2 rounded-xl bg-[#3b2a20] text-white text-sm font-medium">Tambah</button>
-              <div x-show="qty(p.id)" class="flex items-center justify-between bg-[#f4ebdd] rounded-xl">
+              <button x-show="!qty(p.id)||hasOpsi(p)" @click="hasOpsi(p)?bukaOpsi(p):add(p)" class="w-full py-2 rounded-xl bg-[#3b2a20] text-white text-sm font-medium" x-text="hasOpsi(p)?'Pilih'+(qty(p.id)?' ('+qty(p.id)+' di keranjang)':''):'Tambah'"></button>
+              <div x-show="qty(p.id)&&!hasOpsi(p)" class="flex items-center justify-between bg-[#f4ebdd] rounded-xl">
                 <button @click="dec(p)" class="w-10 h-9 text-lg">−</button><span class="font-semibold" x-text="qty(p.id)"></span><button @click="add(p)" class="w-10 h-9 text-lg">+</button>
               </div>
             </div>
@@ -103,8 +103,9 @@
   <div class="bg-[#faf6f0] w-full max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl p-5">
     <template x-if="sheet=='cart'"><div>
       <div class="flex justify-between items-center mb-3"><h3 class="serif text-xl">Keranjang</h3><div class="flex items-center gap-3"><button @click="kosong=true" class="text-xs text-red-600 border border-red-200 rounded-full px-3 py-1">🗑 Kosongkan</button><button @click="sheet=null" class="text-2xl text-stone-400">×</button></div></div>
-      <template x-for="(it,i) in cart" :key="it.id"><div class="bg-white rounded-xl p-3 mb-2 border border-[#eee3d3]">
+      <template x-for="(it,i) in cart" :key="it.key"><div class="bg-white rounded-xl p-3 mb-2 border border-[#eee3d3]">
         <div class="flex justify-between"><b class="text-sm" x-text="it.nama"></b><span class="text-sm" x-text="rp(it.harga*it.qty)"></span></div>
+        <p x-show="it.label" class="text-xs text-[#b4491f]" x-text="it.label"></p>
         <div class="flex gap-2 mt-2"><input x-model="it.catatan" placeholder="Catatan (mis. pedas)" class="flex-1 min-w-0 border rounded-lg px-2 py-1 text-xs">
           <div class="flex items-center bg-[#f4ebdd] rounded-lg"><button @click="dec(it)" class="w-8">−</button><span class="text-sm w-5 text-center" x-text="it.qty"></span><button @click="add(it)" class="w-8">+</button></div></div>
       </div></template>
@@ -147,6 +148,23 @@
   </div>
 </div>
 
+<!-- MODAL PILIHAN MENU (mis. Ayam + Nasi) -->
+<div x-show="opsiM.show" class="fixed inset-0 z-[65] bg-black/50 flex items-end sm:items-center justify-center" @click.self="opsiM.show=false">
+  <div class="bg-[#faf6f0] w-full max-w-md max-h-[92vh] overflow-y-auto rounded-t-3xl sm:rounded-3xl p-5" x-show="opsiM.p">
+    <div class="flex justify-between items-start"><h3 class="serif text-xl" x-text="opsiM.p&&opsiM.p.nama"></h3><button @click="opsiM.show=false" class="text-2xl text-stone-400 leading-none">×</button></div>
+    <template x-for="g in (opsiM.p?opsiM.p.opsi:[])" :key="g.nama"><div class="mt-4">
+      <p class="text-sm font-semibold" x-text="g.nama"></p>
+      <div class="grid gap-2 mt-2"><template x-for="o in g.pilihan" :key="o.nama">
+        <button @click="opsiM.pilih[g.nama]=o.nama" :class="opsiM.pilih[g.nama]==o.nama?'border-[#b4491f] bg-orange-50 font-semibold':'bg-white'" class="border rounded-xl px-3 py-2.5 text-sm flex justify-between text-left">
+          <span x-text="o.nama"></span><span class="text-stone-500" x-text="o.tambah?(o.tambah>0?'+ ':'− ')+rp(Math.abs(o.tambah)):''"></span></button></template></div>
+    </div></template>
+    <div class="flex items-center gap-3 mt-5">
+      <div class="flex items-center bg-[#f4ebdd] rounded-xl"><button @click="if(opsiM.qty>1)opsiM.qty--" class="w-10 h-10 text-lg">−</button><span class="w-6 text-center font-semibold" x-text="opsiM.qty"></span><button @click="opsiM.qty++" class="w-10 h-10 text-lg">+</button></div>
+      <button @click="tambahOpsi()" class="flex-1 bg-[#b4491f] text-white rounded-xl py-3 font-semibold" x-text="'Tambah · '+rp(hargaOpsi*opsiM.qty)"></button>
+    </div>
+  </div>
+</div>
+
 <!-- MODAL TARIK SALDO -->
 <div x-show="tarik.show" class="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4"><div class="bg-white rounded-2xl p-5 w-full max-w-sm" :class="bTarik&&'pointer-events-none opacity-70'"><h3 class="serif text-xl mb-1 text-center">Tarik saldo</h3><p class="text-sm text-stone-500 text-center mb-3" x-text="'Seluruh saldo '+rp(saldoSaya)+' akan dikembalikan.'"></p><input x-model="tarik.tujuan" placeholder="Bank / e-wallet, no. rekening, a.n." class="w-full border rounded-xl px-3 py-2.5 text-sm mb-3"><button @click="tarikSaldo()" class="w-full py-2.5 rounded-xl bg-blue-600 text-white text-sm font-medium"><span x-show="bTarik" class="sp"></span>Ajukan penarikan</button><button @click="tarik.show=false" class="w-full mt-2 py-2 text-sm text-stone-500">Batal</button></div></div>
 
@@ -181,7 +199,7 @@ const QRIS_IMG='img/qris.png'; // simpan gambar QRIS di folder img/
 const LS={get(k){try{return localStorage.getItem(k)}catch(e){return null}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
 const post=b=>fetch(API,{method:'POST',body:JSON.stringify(b)}).then(r=>r.json());
 function app(){return{
- tab:'menu',produk:[],kat:'Semua',loading:true,cart:[],sheet:null,rekening:REKENING,qris:QRIS_IMG,hp:LS.get('hp')||'',hpInput:'',tj:{},busy:false,bBatal:false,bCari:false,kosong:false,bTarik:false,bUbah:false,bSus:null,saldoSaya:0,pakaiSaldo:true,tujuan:'',tarik:{show:false,tujuan:''},toast:'',saldo:0,batal:null,orders:[],cari:{id:'',hp:''},
+ tab:'menu',produk:[],kat:'Semua',loading:true,cart:[],sheet:null,rekening:REKENING,qris:QRIS_IMG,opsiM:{show:false,p:null,pilih:{},qty:1},hp:LS.get('hp')||'',hpInput:'',tj:{},busy:false,bBatal:false,bCari:false,kosong:false,bTarik:false,bUbah:false,bSus:null,saldoSaya:0,pakaiSaldo:true,tujuan:'',tarik:{show:false,tujuan:''},toast:'',saldo:0,batal:null,orders:[],cari:{id:'',hp:''},
  langkah:['Menunggu Konfirmasi','Diproses','Packing','Siap','Selesai'],
  metodeList:[['Cash','💵 Tunai'],['Bayar Nanti','⏳ Bayar Nanti'],['Transfer','🏦 Transfer'],['QRIS','📱 QRIS']],
  f:{nama:LS.get('nama')||'',hp:LS.get('hp')||'',metode:'Cash',bukti:null},
@@ -193,9 +211,9 @@ function app(){return{
  get pakai(){return this.pakaiSaldo?Math.min(this.saldo,this.total):0},
  get sisa(){return this.total-this.pakai},
  get perluBukti(){return this.sisa>0&&['Transfer','QRIS'].includes(this.f.metode)},
- qty(id){return(this.cart.find(i=>i.id==id)||{}).qty||0},
- add(p){const e=this.cart.find(i=>i.id==p.id);e?e.qty++:this.cart.push({...p,qty:1,catatan:''})},
- dec(p){const e=this.cart.find(i=>i.id==p.id);if(!e)return;if(--e.qty<=0)this.cart=this.cart.filter(i=>i!=e);if(!this.cart.length)this.sheet=null},
+ qty(id){return this.cart.filter(i=>i.id==id).reduce((s,i)=>s+i.qty,0)},
+ add(p){const k=p.key||p.id,e=this.cart.find(i=>i.key==k);e?e.qty++:this.cart.push({...p,key:k,qty:1,catatan:''})},
+ dec(p){const k=p.key||p.id,e=this.cart.find(i=>i.key==k);if(!e)return;if(--e.qty<=0)this.cart=this.cart.filter(i=>i!=e);if(!this.cart.length)this.sheet=null},
  salin(t,msg){t=String(t);const ok=()=>this.note(msg);
   if(navigator.clipboard&&window.isSecureContext)navigator.clipboard.writeText(t).then(ok).catch(()=>this.salinLama(t,ok));else this.salinLama(t,ok)},
  salinLama(t,ok){const a=document.createElement('textarea');a.value=t;a.style.cssText='position:fixed;opacity:0';document.body.appendChild(a);a.select();
@@ -217,7 +235,7 @@ function app(){return{
   if(this.perluBukti&&!this.f.bukti)return this.note('Upload bukti pembayaran dulu');
   this.busy=true;
   try{const r=await post({action:'checkout',nama:this.f.nama,hp:this.f.hp,metode:this.f.metode,pakaiSaldo:this.pakaiSaldo,buktiBase64:this.perluBukti?this.f.bukti:null,buktiMime:'image/jpeg',buktiName:'bukti.jpg',
-    items:this.cart.map(i=>({id:i.id,qty:i.qty,catatan:i.catatan}))});
+    items:this.cart.map(i=>({id:i.id,qty:i.qty,catatan:i.catatan,pilih:i.pilih}))});
    if(r.status!='success')throw new Error(r.message);
    LS.set('nama',this.f.nama);this.setHp(this.f.hp);
    this.cart=[];this.sheet=null;this.f.bukti=null;this.saldo=0;this.tab='order';this.note('Pesanan terkirim: '+r.orderId);this.loadOrders();
@@ -232,6 +250,17 @@ function app(){return{
    if(r.status=='success'){this.orders=r.data;this.saldoSaya=r.saldo||0;LS.set('cacheOrders',JSON.stringify({hp:this.hp,data:r.data,saldo:this.saldoSaya}))}
   }catch(e){} /* gagal jaringan: tetap tampilkan data terakhir, jangan dikosongkan */},
  hpOf(){return this.hp},
+ hasOpsi(p){return p.opsi&&p.opsi.length>0},
+ hargaMin(p){return p.harga+(p.opsi||[]).reduce((s,g)=>g.wajib===false?s:s+Math.min(...g.pilihan.map(o=>o.tambah)),0)},
+ bukaOpsi(p){const pilih={};p.opsi.forEach(g=>{if(g.wajib!==false&&g.pilihan.length)pilih[g.nama]=g.pilihan[0].nama});this.opsiM={show:true,p,pilih,qty:1}},
+ get hargaOpsi(){const p=this.opsiM.p;if(!p)return 0;return p.harga+p.opsi.reduce((s,g)=>{const o=g.pilihan.find(x=>x.nama==this.opsiM.pilih[g.nama]);return s+(o?o.tambah:0)},0)},
+ tambahOpsi(){const m=this.opsiM,p=m.p;
+  for(const g of p.opsi){if(g.wajib!==false&&!m.pilih[g.nama])return this.note('Pilih '+g.nama+' dulu')}
+  const pilih={};p.opsi.forEach(g=>{if(m.pilih[g.nama])pilih[g.nama]=m.pilih[g.nama]});
+  const key=p.id+'|'+Object.entries(pilih).map(([a,b])=>a+':'+b).join('|'),label=Object.values(pilih).join(', ');
+  const e=this.cart.find(x=>x.key==key);
+  if(e)e.qty+=m.qty;else this.cart.push({id:p.id,nama:p.nama,harga:this.hargaOpsi,opsi:p.opsi,pilih,label,key,qty:m.qty,catatan:''});
+  this.opsiM.show=false;this.note('Masuk keranjang')},
  langkahOf(o){return o.antar?['Menunggu Konfirmasi','Diproses','Packing','Siap','Diantar','Selesai']:this.langkah},
  aktif(o){return !['Selesai','Dibatalkan Pembeli','Dibatalkan Admin','Refund Selesai'].includes(o.status)},
  tanyaAdmin(o){window.open('https://wa.me/6281321389441?text='+encodeURIComponent('Halo admin Dapur Kinara, saya '+o.nama+'. Mau menanyakan pesanan '+o.id+' (status: '+o.status+'). Mohon info prosesnya ya, terima kasih.'),'_blank')},
