@@ -179,8 +179,8 @@
 
 <!-- MODAL ALAMAT PENGANTARAN -->
 <div x-show="alamatM.show" class="fixed inset-0 z-[65] bg-black/50 flex items-center justify-center p-4"><div class="bg-white rounded-2xl p-5 w-full max-w-sm" :class="bAlamat&&'pointer-events-none opacity-70'">
-  <h3 class="serif text-xl mb-1">Alamat pengantaran</h3><p class="text-xs text-stone-500 mb-3">Tulis lokasi selengkap mungkin (jalan, no. rumah, patokan).</p>
-  <textarea x-model="alamatM.alamat" rows="3" placeholder="Contoh: Jl. Mawar No. 5 RT 02/03, dekat warung biru" class="w-full border rounded-xl p-2.5 text-sm"></textarea>
+  <h3 class="serif text-xl mb-1">Alamat pengantaran</h3><p class="text-xs text-stone-500 mb-3">Tulis lokasi lengkap atau metode pengantaran(Rumah, Tempat, Lantai, Ruangan, Nama).</p>
+  <textarea x-model="alamatM.alamat" rows="3" placeholder="Contoh: Anterin ke rumah ya" class="w-full border rounded-xl p-2.5 text-sm"></textarea>
   <div class="flex gap-2 mt-3"><button @click="alamatM.show=false" class="flex-1 py-2.5 bg-stone-100 rounded-xl text-sm">Batal</button><button @click="simpanAlamat()" class="flex-1 py-2.5 bg-[#b4491f] text-white rounded-xl text-sm font-medium"><span x-show="bAlamat" class="sp"></span>Simpan</button></div>
 </div></div>
 
