@@ -8,7 +8,7 @@
 <script src="https://cdn.tailwindcss.com"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
-<style>body{font-family:Inter,sans-serif;background:#f3eee6;color:#3b2a20}.serif{font-family:'Playfair Display',serif}[x-cloak]{display:none!important}.sp{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spn .7s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spn{to{transform:rotate(360deg)}}</style>
+<style>body{font-family:Inter,sans-serif;background:#f3eee6;color:#3b2a20}.serif{font-family:'Playfair Display',serif}[x-cloak]{display:none!important}.sp{display:inline-block;width:14px;height:14px;border:2px solid currentColor;border-top-color:transparent;border-radius:50%;animation:spn .7s linear infinite;vertical-align:-2px;margin-right:6px}@keyframes spn{to{transform:rotate(360deg)}}.baru{animation:gtr 1.4s ease-in-out infinite}@keyframes gtr{0%,100%{box-shadow:0 0 0 0 rgba(239,68,68,.6);transform:rotate(0)}10%{transform:rotate(-1deg)}20%{transform:rotate(1deg)}30%{transform:rotate(-1deg)}40%{transform:rotate(0)}70%{box-shadow:0 0 0 12px rgba(239,68,68,0)}}</style>
 </head>
 <body x-data="admin()" x-cloak>
 
@@ -30,7 +30,7 @@
   <div class="max-w-7xl mx-auto px-4 py-3 flex items-center justify-between">
     <h1 class="serif text-xl text-orange-300">Kinara Admin</h1>
     <nav class="flex gap-1 text-sm items-center">
-      <template x-for="t in [['antrean','Antrean'],['riwayat','Riwayat'],['tarik','Saldo'],['menu','Menu']]" :key="t[0]"><button @click="tab=t[0]" :class="tab==t[0]?'bg-white text-[#3b2a20]':'text-stone-300'" class="px-3 py-1.5 rounded-full" x-text="t[1]+(t[0]=='antrean'?' ('+aktif.length+')':t[0]=='tarik'&&penarikan.length?' ('+penarikan.length+')':'')"></button></template>
+      <template x-for="t in [['antrean','Antrean'],['riwayat','Riwayat'],['tarik','Saldo'],['ulasan','Ulasan'],['menu','Menu']]" :key="t[0]"><button @click="tab=t[0];if(t[0]=='ulasan')loadUlasan()" :class="tab==t[0]?'bg-white text-[#3b2a20]':'text-stone-300'" class="px-3 py-1.5 rounded-full" x-text="t[1]+(t[0]=='antrean'?' ('+aktif.length+')':t[0]=='tarik'&&penarikan.length?' ('+penarikan.length+')':'')"></button></template>
       <button @click="toggleSuara()" class="ml-1 text-lg" :title="suara?'Suara aktif':'Suara mati'" x-text="suara?'🔔':'🔕'"></button><button @click="logout()" class="ml-1 text-xs text-red-300">Keluar</button>
     </nav>
   </div>
@@ -43,17 +43,21 @@
     <p x-show="!aktif.length" class="text-center text-stone-400 py-16">Belum ada antrean 🍗</p>
     <div class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
       <template x-for="o in aktif" :key="o.id">
-        <div class="relative bg-white rounded-2xl shadow-sm border-t-4 p-4 flex flex-col" :class="warna(o.status)">
+        <div class="relative bg-white rounded-2xl shadow-sm border-t-4 p-4 flex flex-col" :class="[warna(o.status), o.status=='Menunggu Konfirmasi'?'baru':'']">
           <div x-show="rowBusy(o.id)" class="absolute inset-0 bg-white/70 rounded-2xl flex items-center justify-center z-10 text-[#b4491f]"><span class="sp" style="width:28px;height:28px;border-width:3px;margin:0"></span></div>
           <div class="flex justify-between items-start">
             <div><b x-text="o.nama"></b> <button @click="waOpen(o)" class="text-[10px] bg-green-500 text-white px-2 py-0.5 rounded-full">WA</button><p class="text-[11px] text-stone-400" x-text="o.waktu"></p></div>
-            <span class="text-xs font-mono bg-stone-100 px-2 py-1 rounded" x-text="o.id"></span>
+            <div class="flex flex-col items-end gap-1"><span x-show="o.status=='Menunggu Konfirmasi'" class="text-[11px] bg-red-500 text-white px-2 py-0.5 rounded-full animate-bounce">🔔 PESANAN BARU</span><span class="text-xs font-mono bg-stone-100 px-2 py-1 rounded" x-text="o.id"></span></div>
           </div>
           <div class="bg-orange-50 rounded-xl p-3 my-3 text-sm whitespace-pre-line relative" x-text="o.pesanan"></div>
           <p x-show="o.catatan" class="text-xs text-stone-500 mb-2" x-text="'Catatan: '+o.catatan"></p>
           <div class="flex justify-between text-sm"><span x-text="o.metode+' · '+o.lunas"></span><b x-text="rp(o.total)"></b></div>
           <p x-show="o.saldo>0" class="text-xs text-blue-700" x-text="'Saldo dipakai '+rp(o.saldo)+' → tagih '+rp(o.total-o.saldo)"></p>
           <button x-show="o.bukti" @click="lbOpen(o.bukti,'Bukti pembayaran '+o.id)" class="text-xs text-blue-600 underline mt-1 text-left">🖼 Lihat bukti pembayaran</button>
+          <button x-show="(o.metode=='Transfer'||o.metode=='QRIS') && o.status=='Menunggu Konfirmasi' && o.lunas!='Bukti Ditolak'" @click="tolakBukti(o)" class="text-xs text-red-600 underline text-left mt-1">⚠ Bukti tidak valid → minta kirim ulang</button>
+          <p x-show="o.lunas=='Bukti Ditolak'" class="text-xs bg-red-50 text-red-700 rounded-lg p-2 mt-1">Bukti ditolak, menunggu pembeli mengirim ulang.</p>
+          <p x-show="o.antar" class="text-xs bg-sky-50 text-sky-800 rounded-lg p-2 mt-2 break-words">🛵 Diantar ke: <b x-text="o.alamat||'(alamat belum diisi, hubungi pembeli)'"></b> <a x-show="o.alamat" :href="'https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(o.alamat)" target="_blank" class="underline">Peta</a></p>
+          <p x-show="!o.antar" class="text-[11px] text-stone-400 mt-1">🏠 Diambil sendiri</p>
           <p x-show="o.status=='Refund Diminta'" class="text-xs bg-purple-50 text-purple-800 rounded-lg p-2 mt-2 break-words" x-text="'Refund '+rp(o.total-o.saldo)+' → '+(o.tujuan||'tujuan belum diisi, chat WA pelanggan')"></p>
           <button x-show="(o.metode=='Bayar Nanti'||o.metode=='Cash') && o.lunas!='Lunas' && o.status!='Refund Diminta'" @click="lunas(o)" :disabled="rowBusy(o.id)" class="mt-2 text-xs bg-amber-100 text-amber-800 border border-amber-300 rounded-lg py-1.5 font-medium"><span x-show="busy[o.id+'|l']" class="sp"></span><span x-text="o.lunas=='Menunggu Verifikasi'?'✔ Bukti bayar masuk · Verifikasi & Lunas':'Tandai Lunas (sudah bayar)'"></span></button>
           <p class="text-center text-xs font-semibold mt-3" x-text="o.status"></p>
@@ -69,7 +73,7 @@
             <p class="text-[11px] text-stone-400 text-center mt-2" x-text="o.status=='Menunggu Konfirmasi'&&(o.metode=='Transfer'||o.metode=='QRIS')?'Klik angka 2 setelah bukti valid → otomatis Lunas':'Klik angka untuk memperbarui proses'"></p>
             <div class="flex gap-2 mt-2">
               <button @click="tolakOpen(o)" class="px-4 bg-red-50 text-red-600 rounded-xl text-sm font-medium">Tolak</button>
-              <button @click="toggleAntar(o)" :disabled="rowBusy(o.id)" class="flex-1 rounded-xl text-sm font-medium border disabled:opacity-60" :class="o.antar?'bg-sky-100 border-sky-300 text-sky-800':'bg-white border-stone-300 text-stone-600'" x-text="o.antar?'🛵 Diantar (aktif)':'🛵 Antarkan pesanan'"></button>
+              <button x-show="o.status=='Siap'" @click="toggleAntar(o)" :disabled="rowBusy(o.id)" class="flex-1 rounded-xl text-sm font-medium border disabled:opacity-60" :class="o.antar?'bg-white border-stone-300 text-stone-600':'bg-sky-100 border-sky-300 text-sky-800'" x-text="o.antar?'🏠 Ubah jadi: Diambil sendiri':'🛵 Ubah jadi: Diantarkan'"></button>
             </div>
           </div></template>
           <button x-show="o.status!='Refund Diminta'" @click="editOpen(o)" class="text-xs text-stone-400 mt-2 self-center">Edit isi / harga</button>
@@ -95,7 +99,7 @@
             <span x-show="r.lunas=='Lunas'" class="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full" x-text="'Lunas'+(r.cara?' · '+r.cara:'')"></span>
             <p x-show="r.lunas=='Lunas' && r.lunasAt" class="text-[10px] text-stone-400 mt-0.5" x-text="r.lunasAt"></p>
             <div x-show="r.lunas!='Lunas'">
-              <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full" x-text="r.lunas=='Menunggu Verifikasi'?'MENUNGGU VERIFIKASI':'BELUM LUNAS'"></span>
+              <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full" x-text="r.lunas=='Menunggu Verifikasi'?'MENUNGGU VERIFIKASI':(r.lunas=='Bukti Ditolak'?'BUKTI DITOLAK':'BELUM LUNAS')"></span>
               <p class="text-xs font-semibold text-red-600 mt-1" x-text="'Tagihan '+rp(r.total-r.saldo)"></p>
               <button x-show="r.lunas=='Menunggu Verifikasi' && r.bukti" @click="lbOpen(r.bukti,'Bukti dari pembeli '+r.id)" class="block text-xs text-blue-600 underline text-left">🖼 Lihat bukti dari pembeli</button>
               <div class="flex flex-wrap gap-1 mt-2">
@@ -109,6 +113,30 @@
         <td class="p-3 text-xs"><span x-text="r.status"></span><button x-show="r.refund" @click="lbOpen(r.refund,'Bukti refund '+r.id)" class="block text-blue-600 underline text-left">🖼 Bukti refund</button></td>
       </tr></template>
     </table></div>
+  </section>
+
+  <!-- REKAP PENILAIAN -->
+  <section x-show="tab=='ulasan'">
+    <div class="flex justify-between items-center mb-3"><h2 class="serif text-2xl">Rekap Penilaian &amp; Masukan</h2><button @click="loadUlasan()" :disabled="busy.ulasan" class="text-sm bg-white border rounded-lg px-3 py-1.5 disabled:opacity-60"><span x-show="busy.ulasan" class="sp"></span>Muat ulang</button></div>
+    <p x-show="!ul.total" class="text-center text-stone-400 py-12">Belum ada penilaian.</p>
+    <div x-show="ul.total">
+      <div class="grid grid-cols-2 md:grid-cols-3 gap-3 mb-4">
+        <div class="bg-white rounded-2xl p-3"><p class="text-xs text-stone-400">Total ulasan</p><b class="text-2xl" x-text="ul.total"></b></div>
+        <div class="bg-white rounded-2xl p-3"><p class="text-xs text-stone-400">Rata-rata bintang menu</p><b class="text-2xl" x-text="ul.rata||'-'"></b><p class="text-amber-400 text-sm" x-text="bintang(ul.rata)"></p></div>
+        <div class="bg-white rounded-2xl p-3"><p class="text-xs text-stone-400">Keluhan</p><b class="text-2xl text-red-600" x-text="ul.daftar.filter(x=>x.jenis=='Keluhan').length"></b></div>
+      </div>
+      <div class="bg-white rounded-2xl overflow-x-auto mb-4"><table class="w-full text-sm"><tr class="bg-stone-100 text-left"><th class="p-3">Menu</th><th class="p-3">Rata-rata</th><th class="p-3">Jumlah</th></tr>
+        <template x-for="m in ul.menu" :key="m.nama"><tr class="border-t"><td class="p-3" x-text="m.nama"></td><td class="p-3"><span class="text-amber-400" x-text="bintang(m.rata)"></span> <b x-text="m.rata"></b></td><td class="p-3" x-text="m.jumlah"></td></tr></template></table></div>
+      <div class="flex gap-2 mb-3 text-sm overflow-x-auto"><template x-for="j in ['Semua','Testimoni','Keluhan','Masukan']" :key="j"><button @click="ulFilter=j" :class="ulFilter==j?'bg-[#3b2a20] text-white':'bg-white'" class="px-3 py-1.5 rounded-full border whitespace-nowrap" x-text="j+(j=='Semua'?'':' ('+ul.daftar.filter(x=>x.jenis==j).length+')')"></button></template></div>
+      <div class="grid gap-3 md:grid-cols-2"><template x-for="x in ulTampil" :key="x.id">
+        <div class="bg-white rounded-2xl p-4 border-l-4" :class="x.jenis=='Keluhan'?'border-red-400':(x.jenis=='Masukan'?'border-sky-400':'border-green-400')">
+          <div class="flex justify-between"><b x-text="x.nama"></b><span class="text-[11px] px-2 py-0.5 rounded-full bg-stone-100" x-text="x.jenis"></span></div>
+          <p class="text-[11px] text-stone-400" x-text="x.id+' · '+x.waktu"></p>
+                    <div class="text-xs mt-2" x-show="x.menu.length"><template x-for="m in x.menu" :key="m.nama"><div class="flex justify-between"><span x-text="m.nama"></span><span class="text-amber-400" x-text="bintang(m.bintang)"></span></div></template></div>
+          <p x-show="x.komentar" class="text-sm mt-2 bg-stone-50 rounded-lg p-2 whitespace-pre-line break-words" x-text="x.komentar"></p>
+          <button @click="balasUlasan(x)" class="mt-2 text-xs bg-green-500 text-white px-3 py-1 rounded-lg">💬 Balas via WA</button>
+        </div></template></div>
+    </div>
   </section>
 
   <!-- PENARIKAN SALDO -->
@@ -146,7 +174,7 @@
     <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4">
       <template x-for="p in produk" :key="p.id"><div class="bg-white rounded-2xl p-3 shadow-sm">
         <div class="aspect-[4/3] bg-stone-100 rounded-xl overflow-hidden mb-2"><img x-show="p.gambar" :src="p.gambar" class="w-full h-full object-cover"></div>
-        <b class="text-sm" x-text="p.nama"></b><p class="text-sm text-[#b4491f] font-semibold" x-text="rp(p.harga)"></p><p x-show="p.opsi&&p.opsi.length" class="text-[10px] text-sky-700" x-text="p.opsi.map(g=>g.nama).join(' · ')"></p>
+        <b class="text-sm" x-text="p.nama"></b><p class="text-sm text-[#b4491f] font-semibold" x-text="rp(p.harga)"></p><p x-show="p.rating" class="text-[11px] text-amber-600" x-text="p.rating?'★ '+p.rating.rata+' ('+p.rating.jumlah+')':''"></p><p x-show="p.opsi&&p.opsi.length" class="text-[10px] text-sky-700" x-text="p.opsi.map(g=>g.nama).join(' · ')"></p>
         <div class="flex gap-2 mt-2"><button @click="produkOpen(p)" class="flex-1 bg-blue-50 text-blue-700 rounded-lg py-1 text-xs">Edit</button><button @click="hapus(p)" class="flex-1 bg-red-50 text-red-600 rounded-lg py-1 text-xs">Hapus</button></div>
       </div></template>
     </div>
@@ -155,7 +183,7 @@
 </div>
 
 <!-- MODAL UMUM -->
-<div x-show="m.type" :class="m.type?'':'pointer-events-none'" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" @click.self="m.type=null">
+<div x-show="m.type" :class="m.type?'':'pointer-events-none'" class="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
   <div class="bg-white rounded-2xl p-5 w-full max-w-sm max-h-[92vh] overflow-y-auto">
     <h3 class="font-bold text-lg mb-3" x-text="m.title"></h3>
     <template x-if="m.type=='tolak'"><div><textarea x-model="m.alasan" rows="2" placeholder="Alasan (mis. menu habis)" class="w-full border rounded-xl p-2 text-sm"></textarea>
@@ -223,13 +251,14 @@ const store={
   del(s,k){try{window[s].removeItem(k)}catch(e){}}
 };
 function admin(){return{
- tab:'antrean',token:store.get('sessionStorage','kt')||'',pin:'',loginErr:'',aktif:[],riwayat:[],produk:[],penarikan:[],saldoList:[],lb:{show:false,url:'',title:'',loading:false,err:false},notif:{show:false,hp:'',judul:'',teks:''},filterBelum:false,toast:'',m:{type:null},busy:{},
+ tab:'antrean',token:store.get('sessionStorage','kt')||'',pin:'',loginErr:'',aktif:[],riwayat:[],produk:[],penarikan:[],saldoList:[],ul:{total:0,rata:0,menu:[],daftar:[]},ulFilter:'Semua',lb:{show:false,url:'',title:'',loading:false,err:false},notif:{show:false,hp:'',judul:'',teks:''},filterBelum:false,toast:'',m:{type:null},busy:{},
  ctx:null,audioOK:false,suara:store.get('localStorage','suara')!='off',ringT:null,pollT:null,loading:false,
  nextLabel:{'Menunggu Konfirmasi':'Terima & Proses','Diproses':'Packing','Packing':'Siap'},
  rp:n=>'Rp '+Number(n||0).toLocaleString('id-ID'),
  warna:s=>({'Menunggu Konfirmasi':'border-red-500','Diproses':'border-amber-500','Packing':'border-blue-500','Siap':'border-green-500','Refund Diminta':'border-purple-500'}[s]),
  get omzet(){return this.riwayat.filter(r=>r.status=='Selesai').reduce((s,r)=>s+r.total,0)},
  get piutang(){return this.riwayat.filter(r=>r.status=='Selesai'&&r.lunas!='Lunas').reduce((s,r)=>s+r.total-r.saldo,0)},
+ get ulTampil(){return this.ulFilter=='Semua'?this.ul.daftar:this.ul.daftar.filter(x=>x.jenis==this.ulFilter)},
  get riwayatTampil(){return this.filterBelum?this.riwayat.filter(r=>r.status=='Selesai'&&r.lunas!='Lunas'):this.riwayat},
  get mBusy(){return !!this.busy.prod||!!(this.m.o&&this.rowBusy(this.m.o.id))},
  rowBusy(id){return Object.keys(this.busy).some(k=>k.startsWith(id+'|'))},
@@ -301,7 +330,12 @@ function admin(){return{
    if(s=='Selesai'){const syarat=o.antar?'Diantar':'Siap';if(o.status!=syarat)return this.note('Majukan dulu ke '+syarat+' sebelum Selesai');return this.selesaiOpen(o)}
    const terima=o.status=='Menunggu Konfirmasi'&&(o.metode=='Transfer'||o.metode=='QRIS');
    this.aksi(o.id+'|m',{action:'setLangkah',id:o.id,target:s},terima?'Diterima · pembayaran LUNAS':'Status → '+s)},
- toggleAntar(o){this.aksi(o.id+'|m',{action:'setAntar',id:o.id,antar:!o.antar},o.antar?'Opsi antar dimatikan (5 tahap)':'Opsi antar aktif (6 tahap)')},
+ toggleAntar(o){const jadiAntar=!o.antar;
+   this.aksi(o.id+'|m',{action:'setAntar',id:o.id,antar:jadiAntar},jadiAntar?'Diubah: diantarkan (6 tahap)':'Diubah: diambil sendiri (5 tahap)',()=>{
+     const l=this.linkPesanan(o.hp);
+     this.munculNotif(o.hp,'Pengambilan diubah · kabari pembeli',jadiAntar
+       ?'Halo kak '+o.nama+', pesanan '+o.id+' sudah siap dan akan kami antarkan'+(o.alamat?' ke: '+o.alamat:'. Mohon isi alamat pengantaran lewat link ini: '+l)+'.'
+       :'Halo kak '+o.nama+', pesanan '+o.id+' sudah siap dan mohon diambil sendiri ke Dapur Kinara. Detail: '+l)})},
  // ---- preview foto bukti (dialog) ----
  lbOpen(url,title){this.lb={show:true,url,title,loading:true,err:false}},
  // ---- notifikasi WhatsApp ke pelanggan (link bisa diklik) ----
@@ -318,7 +352,11 @@ function admin(){return{
  notifEdit(o,m){this.munculNotif(o.hp,'Pesanan diubah · minta konfirmasi','Halo kak '+o.nama+', ada perubahan pada pesanan '+o.id+':\n'+m.pesanan+'\nTotal: '+this.rp(m.total)+'\nMohon dicek dan konfirmasi dengan membalas chat ini secepatnya ya. Detail: '+this.linkPesanan(o.hp))},
  tanyaSaldo(s){this.bukaWA(s.hp,'Halo kak '+(s.nama||'')+', saldo Anda di Dapur Kinara '+this.rp(s.saldo)+' masih tersimpan. Mau dipakai di pesanan berikutnya atau dikembalikan ke rekening? Silakan pilih di sini: '+this.linkPesanan(s.hp))},
  lunasOpen(r){this.m={type:'lunas',title:'Tandai lunas '+r.id,o:r,cara:(r.lunas=='Menunggu Verifikasi'||r.metode=='Transfer')?'Transfer':(r.metode=='QRIS'?'QRIS':'Cash')}},
- tolakBukti(){const o=this.m.o;this.aksi(o.id+'|l',{action:'tolakBukti',id:o.id},'Bukti ditolak · kembali Belum Lunas')},
+ tolakBukti(o){o=o||this.m.o;if(!confirm('Tandai bukti tidak valid dan minta pembeli kirim ulang?'))return;
+   this.aksi(o.id+'|l',{action:'tolakBukti',id:o.id},'Bukti ditolak · pembeli diminta kirim ulang',()=>this.munculNotif(o.hp,'Bukti tidak valid · kabari pembeli','Halo kak '+o.nama+', bukti pembayaran untuk pesanan '+o.id+' belum valid / tidak sesuai. Mohon kirim ulang bukti transfer yang benar sebesar '+this.rp(o.total-o.saldo)+' lewat link ini: '+this.linkPesanan(o.hp)+' Terima kasih 🙏'))},
+ bintang(n){n=Math.round(Number(n)||0);return '★'.repeat(n)+'☆'.repeat(5-n)},
+ async loadUlasan(){this.busy.ulasan=true;const r=await this.api({action:'getUlasan'});delete this.busy.ulasan;if(r.status=='success')this.ul=r},
+ balasUlasan(x){this.bukaWA(x.hp,x.jenis=='Keluhan'?'Halo kak '+x.nama+', mohon maaf atas ketidaknyamanan pada pesanan '+x.id+'. Terima kasih sudah menyampaikan keluhan, akan kami tindak lanjuti.':'Halo kak '+x.nama+', terima kasih banyak atas penilaian dan masukannya untuk pesanan '+x.id+' 🙏')},
  tolakOpen(o){this.m={type:'tolak',title:'Tolak / batalkan '+o.id,o,alasan:'Menu habis',opsi:'Refund'}},
  selesaiOpen(o){this.m={type:'selesai',title:'Selesaikan '+o.id,o,nominal:o.total-o.saldo,lunas:o.metode!='Bayar Nanti'}},
  refundOpen(o){this.m={type:'refund',title:'Refund '+o.id,o,base64:null}},
