@@ -5,6 +5,10 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Admin – Dapur Kinara</title>
 <meta name="robots" content="noindex">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#3b2a20">
+<link rel="icon" href="img/dapurkinara.png">
+<link rel="apple-touch-icon" href="img/dapurkinara.png">
 <script src="https://cdn.tailwindcss.com"></script>
 <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.14.1/dist/cdn.min.js"></script>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
@@ -31,7 +35,7 @@
     <h1 class="serif text-xl text-orange-300">Kinara Admin</h1>
     <nav class="flex gap-1 text-sm items-center">
       <template x-for="t in [['antrean','Antrean'],['riwayat','Riwayat'],['tarik','Saldo'],['ulasan','Ulasan'],['menu','Menu']]" :key="t[0]"><button @click="tab=t[0];if(t[0]=='ulasan')loadUlasan()" :class="tab==t[0]?'bg-white text-[#3b2a20]':'text-stone-300'" class="px-3 py-1.5 rounded-full" x-text="t[1]+(t[0]=='antrean'?' ('+aktif.length+')':t[0]=='tarik'&&penarikan.length?' ('+penarikan.length+')':'')"></button></template>
-      <button @click="toggleSuara()" class="ml-1 text-lg" :title="suara?'Suara aktif':'Suara mati'" x-text="suara?'🔔':'🔕'"></button><button @click="logout()" class="ml-1 text-xs text-red-300">Keluar</button>
+      <button x-show="pwaEvt" @click="pasangPwa()" class="ml-1 text-xs bg-white text-[#3b2a20] rounded-full px-2 py-1">📲 Pasang</button><button @click="layarNyala()" class="ml-1 text-lg" :class="wakeMau?'':'opacity-40'" :title="wakeMau?'Layar tetap menyala':'Layar boleh mati'">☀</button><button @click="toggleSuara()" class="ml-1 text-lg" :title="suara?'Suara aktif':'Suara mati'" x-text="suara?'🔔':'🔕'"></button><button @click="logout()" class="ml-1 text-xs text-red-300">Keluar</button>
     </nav>
   </div>
 </header>
@@ -251,8 +255,8 @@ const store={
   del(s,k){try{window[s].removeItem(k)}catch(e){}}
 };
 function admin(){return{
- tab:'antrean',token:store.get('sessionStorage','kt')||'',pin:'',loginErr:'',aktif:[],riwayat:[],produk:[],penarikan:[],saldoList:[],ul:{total:0,rata:0,menu:[],daftar:[]},ulFilter:'Semua',lb:{show:false,url:'',title:'',loading:false,err:false},notif:{show:false,hp:'',judul:'',teks:''},filterBelum:false,toast:'',m:{type:null},busy:{},
- ctx:null,audioOK:false,suara:store.get('localStorage','suara')!='off',ringT:null,pollT:null,loading:false,
+ tab:'antrean',token:store.get('localStorage','kt')||'',pin:'',loginErr:'',aktif:[],riwayat:[],produk:[],penarikan:[],saldoList:[],ul:{total:0,rata:0,menu:[],daftar:[]},ulFilter:'Semua',lb:{show:false,url:'',title:'',loading:false,err:false},notif:{show:false,hp:'',judul:'',teks:''},filterBelum:false,toast:'',m:{type:null},busy:{},
+ ctx:null,audioOK:false,suara:store.get('localStorage','suara')!='off',ringT:null,pollT:null,loading:false,wakeMau:false,wl:null,pwaEvt:null,
  nextLabel:{'Menunggu Konfirmasi':'Terima & Proses','Diproses':'Packing','Packing':'Siap'},
  rp:n=>'Rp '+Number(n||0).toLocaleString('id-ID'),
  warna:s=>({'Menunggu Konfirmasi':'border-red-500','Diproses':'border-amber-500','Packing':'border-blue-500','Siap':'border-green-500','Refund Diminta':'border-purple-500'}[s]),
@@ -294,7 +298,15 @@ function admin(){return{
      if(r.code=='AUTH'){this.logout();this.note(r.message)}return r}
    catch(e){return{status:'error',message:e.name=='AbortError'?'Server tidak merespons (timeout)':'Koneksi gagal / server belum di-deploy ulang (V7)'}}
    finally{clearTimeout(tm)}},
- init(){document.addEventListener('click',()=>this.initAudio());if(this.token)this.mulai()},
+ init(){document.addEventListener('click',()=>this.initAudio());
+   window.addEventListener('beforeinstallprompt',e=>{e.preventDefault();this.pwaEvt=e});
+   document.addEventListener('visibilitychange',()=>{if(document.visibilityState=='visible'&&this.wakeMau&&!this.wl)this.mintaWake()});
+   if(this.token)this.mulai()},
+ async pasangPwa(){this.pwaEvt.prompt();await this.pwaEvt.userChoice;this.pwaEvt=null},
+ async mintaWake(){try{this.wl=await navigator.wakeLock.request('screen');this.wl.addEventListener('release',()=>{this.wl=null})}catch(e){}},
+ async layarNyala(){if(!('wakeLock' in navigator))return this.note('Browser ini tidak mendukung layar tetap menyala');
+   this.wakeMau=!this.wakeMau;if(this.wakeMau)await this.mintaWake();else if(this.wl){await this.wl.release();this.wl=null}
+   this.note(this.wakeMau?'Layar akan tetap menyala':'Layar boleh mati')},
  mulai(){if(this.pollT)return;this.load();this.pollT=setInterval(()=>{if(this.token)this.load()},5000)},
  async login(){
    if(this.busy.login)return;
@@ -304,10 +316,10 @@ function admin(){return{
    try{
      const r=await this.api({action:'login',pin:this.pin});
      if(r.status!='success'){this.loginErr=r.message||'Login gagal';return}
-     this.token=r.token;store.set('sessionStorage','kt',r.token);this.pin='';this.mulai()
+     this.token=r.token;store.set('localStorage','kt',r.token);this.pin='';this.mulai()
    }catch(e){this.loginErr='Terjadi kesalahan: '+e.message}
    finally{delete this.busy.login}},
- logout(){this.token='';store.del('sessionStorage','kt');clearInterval(this.pollT);this.pollT=null;this.cekRing(0)},
+ logout(){this.token='';store.del('localStorage','kt');clearInterval(this.pollT);this.pollT=null;this.cekRing(0)},
  async load(){if(this.loading)return;this.loading=true;
    try{const r=await this.api({action:'adminData'});if(r.status!='success')return;
      const baru=r.aktif.filter(o=>o.status=='Menunggu Konfirmasi').length;
@@ -377,6 +389,7 @@ function admin(){return{
   if(m.type=='hapus')return this.aksi(o.id+'|h',{action:'hapusProduk',id:o.id},'Menu dihapus');
   if(m.type=='produk')return this.aksi('prod',{action:m.id?'editProduk':'simpanProduk',id:m.id,nama:m.nama,harga:m.harga,kategori:m.kategori,opsi:m.opsi,base64File:m.base64,mimeType:'image/jpeg',fileName:m.name||'menu.jpg'},'Menu tersimpan')}
 }}
+if('serviceWorker' in navigator)window.addEventListener('load',()=>navigator.serviceWorker.register('sw.js').catch(()=>{}));
 </script>
 </body>
 </html>
